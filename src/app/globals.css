@@ -5,6 +5,42 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --color-dev: var(--dev-accent);
+  --color-dev-bg: var(--dev-bg);
+  --color-dev-bg-mid: var(--dev-bg-mid);
+  --color-dev-nav: var(--dev-nav);
+  --color-dev-surface: var(--dev-surface);
+  --color-dev-surface-strong: var(--dev-surface-strong);
+  --color-dev-border: var(--dev-border);
+  --color-dev-border-strong: var(--dev-border-strong);
+  --color-dev-text: var(--dev-text);
+  --color-dev-text-muted: var(--dev-text-muted);
+  --color-dev-text-soft: var(--dev-text-soft);
+  --color-dev-text-faint: var(--dev-text-faint);
+  --color-dev-accent: var(--dev-accent);
+  --color-dev-accent-soft: var(--dev-accent-soft);
+  --color-dev-accent-muted: var(--dev-accent-muted);
+  --color-dev-accent-hover: var(--dev-accent-hover);
+  --color-dev-purple: var(--dev-purple);
+  --color-dev-purple-soft: var(--dev-purple-soft);
+  --color-dev-purple-hover: var(--dev-purple-hover);
+  --color-dev-teal: var(--dev-teal);
+  --color-dev-yellow: var(--dev-yellow);
+  --color-dev-amber: var(--dev-amber);
+  --color-dev-grid: var(--dev-grid);
+  --color-dev-danger: var(--dev-danger);
+  --color-dev-danger-soft: var(--dev-danger-soft);
+  --color-dev-warning: var(--dev-warning);
+  --color-dev-warning-soft: var(--dev-warning-soft);
+  --color-dev-success: var(--dev-success);
+  --color-dev-success-soft: var(--dev-success-soft);
+  --color-dev-cyan: var(--dev-cyan);
+  --color-dev-pink: var(--dev-pink);
+  --color-dev-rose: var(--dev-rose);
+  --color-dev-orange: var(--dev-orange);
+  --color-dev-green: var(--dev-green);
+  --color-dev-emerald: var(--dev-emerald);
+  --color-dev-indigo: var(--dev-indigo);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-roboto);
@@ -49,6 +85,45 @@
 }
 
 :root {
+  --dev-bg: oklch(0.13 0.04 255);
+  --dev-bg-mid: oklch(0.24 0.09 258);
+  --dev-nav: oklch(0.13 0.04 255 / 80%);
+  --dev-surface: oklch(1 0 0);
+  --dev-surface-strong: oklch(1 0 0 / 20%);
+  --dev-border: oklch(1 0 0 / 10%);
+  --dev-border-strong: oklch(1 0 0 / 20%);
+  --dev-text: oklch(1 0 0);
+  --dev-text-muted: oklch(0.86 0.08 260);
+  --dev-text-soft: oklch(0.92 0.06 255 / 80%);
+  --dev-text-faint: oklch(0.86 0.08 260 / 50%);
+  --dev-accent: oklch(0.65 0.19 255);
+  --dev-accent-soft: oklch(0.65 0.19 255 / 10%);
+  --dev-accent-muted: oklch(0.72 0.15 255);
+  --dev-accent-hover: oklch(0.71 0.17 255);
+  --dev-purple: oklch(0.63 0.22 305);
+  --dev-purple-soft: oklch(0.63 0.22 305 / 20%);
+  --dev-purple-hover: oklch(0.69 0.19 305);
+  --dev-teal: oklch(0.74 0.14 185);
+  --dev-yellow: oklch(0.82 0.16 85);
+  --dev-amber: oklch(0.77 0.17 70);
+  --dev-grid: oklch(0.72 0 0 / 7%);
+  --dev-danger: oklch(0.64 0.21 25);
+  --dev-danger-soft: oklch(0.64 0.21 25 / 10%);
+  --dev-warning: oklch(0.73 0.17 55);
+  --dev-warning-soft: oklch(0.73 0.17 55 / 10%);
+  --dev-success: oklch(0.72 0.17 145);
+  --dev-success-soft: oklch(0.72 0.17 145 / 10%);
+  --dev-cyan: oklch(0.75 0.13 220);
+  --dev-pink: oklch(0.72 0.2 340);
+  --dev-rose: oklch(0.68 0.22 10);
+  --dev-orange: oklch(0.72 0.18 50);
+  --dev-green: oklch(0.7 0.16 145);
+  --dev-emerald: oklch(0.72 0.15 165);
+  --dev-indigo: oklch(0.58 0.2 275);
+  --dev-chart-grid: oklch(1 0 0 / 6%);
+  --dev-chart-axis: oklch(0.72 0.04 260);
+  --dev-chart-tooltip: oklch(0.26 0.04 260);
+  --dev-chart-tooltip-border: oklch(0.36 0.04 260);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -126,5 +201,14 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+@layer utilities {
+  .bg-dev-grid {
+    background-image:
+      linear-gradient(to right, var(--dev-grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--dev-grid) 1px, transparent 1px);
+    background-size: 4rem 4rem;
   }
 }
