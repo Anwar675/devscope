@@ -13,11 +13,19 @@ export interface LoadTestConfigValues {
 interface LoadTestConfigProps {
   testConfig: LoadTestConfigValues;
   setTestConfig: Dispatch<SetStateAction<LoadTestConfigValues>>;
+  errorMessage?: string;
+  isSubmitting?: boolean;
+  onStart: () => void;
+  successMessage?: string;
 }
 
 export const LoadTestConfig = ({
   testConfig,
   setTestConfig,
+  errorMessage,
+  isSubmitting = false,
+  onStart,
+  successMessage,
 }: LoadTestConfigProps) => {
   return (
      <motion.div
@@ -39,7 +47,7 @@ export const LoadTestConfig = ({
                       <input
                         type="range"
                         min="10"
-                        max="10000"
+                        max="100000"
                         step="10"
                         value={testConfig.users}
                         onChange={(e) => setTestConfig({ ...testConfig, users: parseInt(e.target.value) })}
@@ -106,16 +114,25 @@ export const LoadTestConfig = ({
 
                   {/* Start Button */}
                   <button
-                    disabled={!testConfig.url}
+                    disabled={!testConfig.url || isSubmitting}
+                    onClick={onStart}
                     className={`w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
-                      testConfig.url
+                      testConfig.url && !isSubmitting
                         ? "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white shadow-lg shadow-green-500/50 hover:scale-105"
                         : "bg-white/5 text-white/30 cursor-not-allowed"
                     }`}
                   >
                     <Play className="w-5 h-5" />
-                    Start Load Test
+                    {isSubmitting ? "Creating..." : "Start Load Test"}
                   </button>
+
+                  {errorMessage && (
+                    <p className="text-sm text-red-300">{errorMessage}</p>
+                  )}
+
+                  {successMessage && (
+                    <p className="text-sm text-green-300">{successMessage}</p>
+                  )}
                 </div>
               </div>
 

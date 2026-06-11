@@ -1,19 +1,39 @@
 "use client";
 
 import { motion } from "motion/react";
-import { CheckCircle2, Clock, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Square, SquareIcon, XCircle } from "lucide-react";
+import { useState } from "react";
 
-const runningTests = [
-    { id: 1, url: "/api/auth/login", method: "POST", status: "running", progress: 65, currentUsers: 650, totalUsers: 1000, latency: "245ms", errors: 3, duration: "2m 30s" },
-    { id: 2, url: "/api/products", method: "GET", status: "running", progress: 45, currentUsers: 225, totalUsers: 500, latency: "120ms", errors: 0, duration: "1m 45s" },
-    { id: 3, url: "/api/orders", method: "POST", status: "completed", progress: 100, currentUsers: 2000, totalUsers: 2000, latency: "890ms", errors: 12, duration: "5m 00s" },
-    { id: 4, url: "/api/search", method: "GET", status: "failed", progress: 35, currentUsers: 175, totalUsers: 500, latency: "4520ms", errors: 89, duration: "1m 20s" },
-    { id: 5, url: "/api/checkout", method: "POST", status: "queued", progress: 0, currentUsers: 0, totalUsers: 1000, latency: "-", errors: 0, duration: "-" },
-  ];
+export interface LoadTestListItem {
+  id: string;
+  url: string;
+  method: string;
+  status: "queued" | "running" | "completed" | "failed" | "stopped";
+  progress: number;
+  currentUsers: number;
+  totalUsers: number;
+  latency: string;
+  errors: number;
+  duration: number;
+  errorMessage?: string | null;
+}
 
+interface LoadTestTableProps {
+  tests: LoadTestListItem[];
+  isLoading?: boolean;
+  stoppingTestId?: string;
+  onStop?: (id: string) => void;
+}
 
+export const LoadTestTable = ({
+  tests,
+  isLoading = false,
+  stoppingTestId,
+  onStop,
+}: LoadTestTableProps) => {
+  const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
+  const runningCount = tests.filter((test) => test.status === "running").length;
 
-export const LoadTestTable = () => {
   return (
     <div className="p-6 bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl">
       <div className="flex items-center justify-between mb-6">
@@ -24,8 +44,7 @@ export const LoadTestTable = () => {
           <div className="flex items-center gap-2 px-3 py-1 bg-green-500/20 rounded-lg">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
             <span className="text-xs text-green-300">
-              {runningTests.filter((t) => t.status === "running").length}{" "}
-              running
+              {runningCount} running
             </span>
           </div>
         </div>
@@ -62,13 +81,47 @@ export const LoadTestTable = () => {
             </tr>
           </thead>
           <tbody>
-            {runningTests.map((test, idx) => (
+            {isLoading && (
+              <tr>
+                <td
+                  colSpan={8}
+                  className="py-8 px-4 text-center text-blue-200/70"
+                >
+                  Loading tests...
+                </td>
+              </tr>
+            )}
+
+            {!isLoading && tests.length === 0 && (
+              <tr>
+                <td
+                  colSpan={8}
+                  className="py-8 px-4 text-center text-blue-200/70"
+                >
+                  No load tests yet.
+                </td>
+              </tr>
+            )}
+
+            {!isLoading && tests.map((test, idx) => (
               <motion.tr
                 key={test.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.05 }}
-                className="border-b border-white/5 hover:bg-white/5 transition-all"
+                onClick={() => setSelectedTestId(test.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setSelectedTestId(test.id);
+                  }
+                }}
+                tabIndex={0}
+                className={`border-b border-white/5 transition-all cursor-pointer outline-none ${
+                  selectedTestId === test.id
+                    ? "bg-white/10"
+                    : "hover:bg-white/5"
+                }`}
               >
                 {/* Method */}
                 <td className="py-4 px-4">
@@ -96,32 +149,49 @@ export const LoadTestTable = () => {
 
                 {/* Status */}
                 <td className="py-4 px-4">
-                  <div className="flex items-center gap-2">
-                    {test.status === "running" && (
-                      <>
-                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                        <span className="text-green-300 text-sm">Running</span>
-                      </>
-                    )}
-                    {test.status === "completed" && (
-                      <>
-                        <CheckCircle2 className="w-4 h-4 text-green-400" />
-                        <span className="text-green-300 text-sm">
-                          Completed
+                  <div className="max-w-64">
+                    <div className="flex items-center gap-2">
+                      {test.status === "running" && (
+                        <>
+                          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                          <span className="text-green-300 text-sm">Running</span>
+                        </>
+                      )}
+                      {test.status === "completed" && (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 text-green-400" />
+                          <span className="text-green-300 text-sm">
+                            Completed
+                          </span>
+                        </>
+                      )}
+                      {test.status === "failed" && (
+                        <>
+                          <XCircle className="w-4 h-4 text-red-400" />
+                          <span className="text-red-300 text-sm">Failed</span>
+                        </>
+                      )}
+                      {test.status === "stopped" && (
+                        <span className="text-orange-300 flex items-center gap-2 text-sm">
+                          <SquareIcon size="14" />
+                          Stopped
                         </span>
-                      </>
-                    )}
-                    {test.status === "failed" && (
-                      <>
-                        <XCircle className="w-4 h-4 text-red-400" />
-                        <span className="text-red-300 text-sm">Failed</span>
-                      </>
-                    )}
-                    {test.status === "queued" && (
-                      <>
-                        <Clock className="w-4 h-4 text-blue-400" />
-                        <span className="text-blue-300 text-sm">Queued</span>
-                      </>
+                      )}
+                      {test.status === "queued" && (
+                        <>
+                          <Clock className="w-4 h-4 text-blue-400" />
+                          <span className="text-blue-300 text-sm">Queued</span>
+                        </>
+                      )}
+                    </div>
+
+                    {test.status !== "stopped" && test.errorMessage && (
+                      <p
+                        className="mt-2 line-clamp-2 text-xs text-red-200/80"
+                        title={test.errorMessage}
+                      >
+                        {test.errorMessage}
+                      </p>
                     )}
                   </div>
                 </td>
@@ -138,9 +208,11 @@ export const LoadTestTable = () => {
                             ? "bg-green-500"
                             : test.status === "failed"
                               ? "bg-red-500"
-                              : test.status === "running"
-                                ? "bg-blue-500"
-                                : "bg-gray-500"
+                              : test.status === "stopped"
+                                ? "bg-orange-500"
+                                : test.status === "running"
+                                  ? "bg-blue-500"
+                                  : "bg-gray-500"
                         }`}
                       />
                     </div>
@@ -190,10 +262,25 @@ export const LoadTestTable = () => {
                 </td>
 
                 {/* Duration */}
-                <td className="py-4 px-4">
+                <td className="relative py-4 px-4 ">
                   <span className="text-blue-200/70 text-sm">
-                    {test.duration}
+                    {formatDuration(test.duration)}
                   </span>
+                  {selectedTestId === test.id &&
+                    ["queued", "running"].includes(test.status) && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onStop?.(test.id);
+                        }}
+                        disabled={!onStop || stoppingTestId === test.id}
+                        className="absolute right-4 top-1/2 inline-flex -translate-y-1/2 items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/20 px-3 py-2 text-xs font-medium text-red-200 shadow-lg shadow-black/20 backdrop-blur transition-all hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Square className="h-3.5 w-3.5" />
+                        {stoppingTestId === test.id ? "Stopping" : "Stop"}
+                      </button>
+                    )}
                 </td>
               </motion.tr>
             ))}
@@ -203,3 +290,14 @@ export const LoadTestTable = () => {
     </div>
   );
 };
+
+function formatDuration(duration: number) {
+  if (duration < 60) {
+    return `${duration}s`;
+  }
+
+  const minutes = Math.floor(duration / 60);
+  const seconds = duration % 60;
+
+  return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
+}

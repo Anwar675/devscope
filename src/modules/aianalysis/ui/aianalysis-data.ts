@@ -266,7 +266,7 @@ export const systemHealth = [
 ] as const;
 
 export const chartTooltipStyle = {
-  backgroundColor: "#1e293b",
-  border: "1px solid #334155",
+  backgroundColor: "var(--dev-chart-tooltip)",
+  border: "1px solid var(--dev-chart-tooltip-border)",
   borderRadius: "8px",
 };

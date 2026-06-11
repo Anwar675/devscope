@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+
 import {
   Brain,
   FlaskConical,
@@ -10,6 +11,8 @@ import {
   LineChart,
   type LucideIcon,
 } from "lucide-react";
+
+import { UserStatus } from "../auther/user-status";
 
 type NavItem = {
   href: string;
@@ -47,8 +50,10 @@ const navItems: NavItem[] = [
 
 export const SideBar = () => {
   const pathname = usePathname();
-
+  
   const isActive = (path: string) => pathname === path;
+ 
+  
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-dev-nav backdrop-blur-lg border-b border-dev-border">
@@ -62,25 +67,31 @@ export const SideBar = () => {
           </div>
         </Link>
 
-        <div className="flex gap-2">
-          {navItems.map((item) => {
-            const Icon = item.icon;
+        <div className="flex items-center gap-4">
+          <div className="flex gap-2">
+            {navItems.map((item) => {
+              const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 ${
-                  isActive(item.href)
-                    ? "bg-dev text-dev-text"
-                    : "text-dev-text-muted hover:bg-dev-surface/10"
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {item.label}
-              </Link>
-            );
-          })}
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 ${
+                    isActive(item.href)
+                      ? "bg-dev text-dev-text"
+                      : "text-dev-text-muted hover:bg-dev-surface/10"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="h-8 w-px bg-dev-border" />
+
+          <UserStatus />
         </div>
       </div>
     </div>

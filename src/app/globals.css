@@ -11,6 +11,10 @@
   --color-dev-nav: var(--dev-nav);
   --color-dev-surface: var(--dev-surface);
   --color-dev-surface-strong: var(--dev-surface-strong);
+  --color-dev-panel: var(--dev-panel);
+  --color-dev-panel-hover: var(--dev-panel-hover);
+  --color-dev-overlay: var(--dev-overlay);
+  --color-dev-code: var(--dev-code);
   --color-dev-border: var(--dev-border);
   --color-dev-border-strong: var(--dev-border-strong);
   --color-dev-text: var(--dev-text);
@@ -21,6 +25,8 @@
   --color-dev-accent-soft: var(--dev-accent-soft);
   --color-dev-accent-muted: var(--dev-accent-muted);
   --color-dev-accent-hover: var(--dev-accent-hover);
+  --color-dev-info: var(--dev-info);
+  --color-dev-info-soft: var(--dev-info-soft);
   --color-dev-purple: var(--dev-purple);
   --color-dev-purple-soft: var(--dev-purple-soft);
   --color-dev-purple-hover: var(--dev-purple-hover);
@@ -28,6 +34,10 @@
   --color-dev-yellow: var(--dev-yellow);
   --color-dev-amber: var(--dev-amber);
   --color-dev-grid: var(--dev-grid);
+  --color-dev-chart-grid: var(--dev-chart-grid);
+  --color-dev-chart-axis: var(--dev-chart-axis);
+  --color-dev-chart-tooltip: var(--dev-chart-tooltip);
+  --color-dev-chart-tooltip-border: var(--dev-chart-tooltip-border);
   --color-dev-danger: var(--dev-danger);
   --color-dev-danger-soft: var(--dev-danger-soft);
   --color-dev-warning: var(--dev-warning);
@@ -90,6 +100,10 @@
   --dev-nav: oklch(0.13 0.04 255 / 80%);
   --dev-surface: oklch(1 0 0);
   --dev-surface-strong: oklch(1 0 0 / 20%);
+  --dev-panel: oklch(1 0 0 / 5%);
+  --dev-panel-hover: oklch(1 0 0 / 10%);
+  --dev-overlay: oklch(1 0 0 / 10%);
+  --dev-code: oklch(0.13 0.04 255 / 50%);
   --dev-border: oklch(1 0 0 / 10%);
   --dev-border-strong: oklch(1 0 0 / 20%);
   --dev-text: oklch(1 0 0);
@@ -100,6 +114,8 @@
   --dev-accent-soft: oklch(0.65 0.19 255 / 10%);
   --dev-accent-muted: oklch(0.72 0.15 255);
   --dev-accent-hover: oklch(0.71 0.17 255);
+  --dev-info: var(--dev-accent);
+  --dev-info-soft: oklch(0.65 0.19 255 / 10%);
   --dev-purple: oklch(0.63 0.22 305);
   --dev-purple-soft: oklch(0.63 0.22 305 / 20%);
   --dev-purple-hover: oklch(0.69 0.19 305);

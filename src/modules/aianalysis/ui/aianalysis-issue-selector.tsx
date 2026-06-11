@@ -7,14 +7,14 @@ interface AIAnalysisIssueSelectorProps {
 
 const getSelectedIssueClass = (severity: string) => {
   if (severity === "critical") {
-    return "bg-red-500/20 border-red-500/50 text-white";
+    return "bg-dev-danger/20 border-dev-danger/50 text-dev-text";
   }
 
   if (severity === "high") {
-    return "bg-orange-500/20 border-orange-500/50 text-white";
+    return "bg-dev-orange/20 border-dev-orange/50 text-dev-text";
   }
 
-  return "bg-yellow-500/20 border-yellow-500/50 text-white";
+  return "bg-dev-yellow/20 border-dev-yellow/50 text-dev-text";
 };
 
 export const AIAnalysisIssueSelector = ({
@@ -30,7 +30,7 @@ export const AIAnalysisIssueSelector = ({
           className={`px-5 py-3 rounded-xl border transition-all flex-shrink-0 ${
             selectedIssue === idx
               ? getSelectedIssueClass(issue.severity)
-              : "bg-white/5 border-white/10 text-blue-200/70 hover:border-white/30"
+              : "bg-dev-panel border-dev-border text-dev-text-muted/70 hover:border-dev-border-strong"
           }`}
         >
           <div className="text-left">

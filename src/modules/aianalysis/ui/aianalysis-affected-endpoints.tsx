@@ -8,33 +8,33 @@ interface AIAnalysisAffectedEndpointsProps {
 
 const getEndpointPanelClass = (severity: IssueSeverity) => {
   if (severity === "critical") {
-    return "bg-red-500/10 border-red-500/30";
+    return "bg-dev-danger/10 border-dev-danger/30";
   }
 
   if (severity === "high") {
-    return "bg-orange-500/10 border-orange-500/30";
+    return "bg-dev-orange/10 border-dev-orange/30";
   }
 
-  return "bg-yellow-500/10 border-yellow-500/30";
+  return "bg-dev-yellow/10 border-dev-yellow/30";
 };
 
 const getEndpointBadgeClass = (severity: IssueSeverity) => {
   if (severity === "critical") {
-    return "bg-red-500/20 text-red-300";
+    return "bg-dev-danger/20 text-dev-danger";
   }
 
   if (severity === "high") {
-    return "bg-orange-500/20 text-orange-300";
+    return "bg-dev-orange/20 text-dev-orange";
   }
 
-  return "bg-yellow-500/20 text-yellow-300";
+  return "bg-dev-yellow/20 text-dev-yellow";
 };
 
 export const AIAnalysisAffectedEndpoints = ({ issue }: AIAnalysisAffectedEndpointsProps) => {
   return (
-    <div className="p-6 bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl">
-      <h3 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-        <Server className="w-5 h-5 text-orange-400" />
+    <div className="p-6 bg-dev-panel backdrop-blur-lg border border-dev-border rounded-2xl">
+      <h3 className="text-xl font-semibold text-dev-text mb-6 flex items-center gap-2">
+        <Server className="w-5 h-5 text-dev-orange" />
         Affected Endpoints
       </h3>
       <div className="space-y-3">
@@ -47,12 +47,12 @@ export const AIAnalysisAffectedEndpoints = ({ issue }: AIAnalysisAffectedEndpoin
             className={`p-4 rounded-xl border ${getEndpointPanelClass(endpoint.severity)}`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-white font-mono">{endpoint.endpoint}</span>
+              <span className="text-dev-text font-mono">{endpoint.endpoint}</span>
               <span className={`px-3 py-1 rounded-full text-xs ${getEndpointBadgeClass(endpoint.severity)}`}>
                 {endpoint.severity}
               </span>
             </div>
-            <p className="text-blue-200/70 text-sm mt-2">{endpoint.impact}</p>
+            <p className="text-dev-text-muted/70 text-sm mt-2">{endpoint.impact}</p>
           </motion.div>
         ))}
       </div>

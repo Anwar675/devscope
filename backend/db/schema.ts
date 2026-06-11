@@ -1,5 +1,13 @@
 import { relations } from "drizzle-orm";
-import { text, pgTable, timestamp, boolean, index } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -73,9 +81,46 @@ export const verification = pgTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
+export const loadTestRun = pgTable(
+  "load_test_run",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    method: text("method").notNull(),
+    users: integer("users").notNull(),
+    duration: integer("duration").notNull(),
+    rampUp: integer("ramp_up").notNull(),
+    status: text("status").notNull().default("queued"),
+    progress: integer("progress").notNull().default(0),
+    currentUsers: integer("current_users").notNull().default(0),
+    totalUsers: integer("total_users").notNull(),
+    latency: text("latency").notNull().default("-"),
+    errors: integer("errors").notNull().default(0),
+    summary: jsonb("summary"),
+    log: text("log"),
+    logExpiresAt: timestamp("log_expires_at"),
+    errorMessage: text("error_message"),
+    startedAt: timestamp("started_at"),
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("load_test_run_user_id_idx").on(table.userId),
+    index("load_test_run_created_at_idx").on(table.createdAt),
+  ],
+);
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
+  loadTestRuns: many(loadTestRun),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -88,6 +133,13 @@ export const sessionRelations = relations(session, ({ one }) => ({
 export const accountRelations = relations(account, ({ one }) => ({
   user: one(user, {
     fields: [account.userId],
+    references: [user.id],
+  }),
+}));
+
+export const loadTestRunRelations = relations(loadTestRun, ({ one }) => ({
+  user: one(user, {
+    fields: [loadTestRun.userId],
     references: [user.id],
   }),
 }));

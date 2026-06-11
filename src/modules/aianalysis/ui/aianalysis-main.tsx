@@ -14,8 +14,8 @@ export function AIAnalysis() {
   const currentIssue = detectedIssues[selectedIssue];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 p-8">
-      <div className="max-w-[1800px] mx-auto">
+    <div className="min-h-screen bg-linear-to-br from-dev-bg via-dev-bg-mid to-dev-bg p-8">
+      <div className="max-w-450 mx-auto">
         <AIAnalysisHeader />
         <AIAnalysisSummary />
         <AIAnalysisHealth />
