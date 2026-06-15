@@ -5,48 +5,46 @@ import { motion } from "motion/react";
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type Dispatch,
   type SetStateAction,
 } from "react";
 import { LoadTestConfig, type LoadTestConfigValues } from "./loadtest-config";
 import { LoadTestTable, type LoadTestListItem } from "./table-loadtest";
+import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
+
 
 const API_URL = "/api/loadtest";
-const LOADTEST_WS_URL =
-  process.env.NEXT_PUBLIC_LOADTEST_WS_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:3001";
-
-type LoadTestProgressEvent = {
-  type: "loadtest:progress";
-  id: string;
-  progress: number;
-  currentUsers: number;
-  status: LoadTestListItem["status"];
-  latency?: string;
-  duration?: number;
-  errors?: number;
-  errorMessage?: string | null;
-};
 
 interface CreateLoadTestProps {
   testConfig: LoadTestConfigValues;
   setTestConfig: Dispatch<SetStateAction<LoadTestConfigValues>>;
+  onOpenRunningTest?: (id: string) => void;
 }
 
 export const CreateLoadTest = ({
   testConfig,
   setTestConfig,
+  onOpenRunningTest,
 }: CreateLoadTestProps) => {
   const [tests, setTests] = useState<LoadTestListItem[]>([]);
   const [isLoadingTests, setIsLoadingTests] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [stoppingTestId, setStoppingTestId] = useState<string | undefined>();
+  const [deletingTestId, setDeletingTestId] = useState<string | undefined>();
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-
+  const isLoadingTestsRef = useRef(false);
+  const router = useRouter();
   const loadTests = useCallback(async () => {
+    if (isLoadingTestsRef.current) {
+      return;
+    }
+
+    isLoadingTestsRef.current = true;
+
     try {
       const response = await fetch(API_URL, {
         cache: "no-store",
@@ -57,12 +55,17 @@ export const CreateLoadTest = ({
         throw new Error(result.message ?? "Could not load tests");
       }
 
-      setTests(result.data);
+      setTests((currentTests) =>
+        areLoadTestListsEqual(currentTests, result.data)
+          ? currentTests
+          : result.data,
+      );
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Could not load tests",
       );
     } finally {
+      isLoadingTestsRef.current = false;
       setIsLoadingTests(false);
     }
   }, []);
@@ -75,58 +78,26 @@ export const CreateLoadTest = ({
     return () => window.clearTimeout(timeoutId);
   }, [loadTests]);
 
-  const activeTestIds = tests
-    .filter((test) => ["queued", "running"].includes(test.status))
-    .map((test) => test.id)
-    .join(",");
-
   useEffect(() => {
-    if (!activeTestIds) {
+    if (!tests.some(isLoadTestActive)) {
       return;
     }
 
-    const sockets = activeTestIds.split(",").map((id) => {
-      const socket = new WebSocket(createLoadTestSocketUrl(id));
+    const intervalId = window.setInterval(() => {
+      void loadTests();
+    }, 5000);
 
-      socket.addEventListener("message", (message) => {
-        const event = parseLoadTestProgressEvent(message.data);
-
-        if (!event) {
-          return;
-        }
-
-        setTests((currentTests) =>
-          currentTests.map((test) =>
-            test.id === event.id
-              ? {
-                  ...test,
-                  progress: event.progress,
-                  currentUsers: event.currentUsers,
-                  status: event.status,
-                  latency: event.latency ?? test.latency,
-                  duration: event.duration ?? test.duration,
-                  errors: event.errors ?? test.errors,
-                  errorMessage: event.errorMessage ?? test.errorMessage,
-                }
-              : test,
-          ),
-        );
-      });
-      socket.addEventListener("error", () => {
-        void loadTests();
-      });
-
-      return socket;
-    });
-
-    return () => {
-      for (const socket of sockets) {
-        socket.close();
-      }
-    };
-  }, [activeTestIds, loadTests]);
+    return () => window.clearInterval(intervalId);
+  }, [loadTests, tests]);
 
   const handleStart = async () => {
+    const { data: session } = await authClient.getSession();
+
+    if (!session) {
+      router.push("/sign-in");
+      return;
+    }
+
     setErrorMessage("");
     setSuccessMessage("");
     setIsSubmitting(true);
@@ -165,9 +136,12 @@ export const CreateLoadTest = ({
     setStoppingTestId(id);
 
     try {
-      const response = await fetch(`${API_URL}/${encodeURIComponent(id)}/stop`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `${API_URL}/${encodeURIComponent(id)}/stop`,
+        {
+          method: "POST",
+        },
+      );
       const result = await response.json();
 
       if (!response.ok || !result.success) {
@@ -187,6 +161,34 @@ export const CreateLoadTest = ({
       );
     } finally {
       setStoppingTestId(undefined);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setErrorMessage("");
+    setSuccessMessage("");
+    setDeletingTestId(id);
+
+    try {
+      const response = await fetch(`${API_URL}/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message ?? "Could not delete load test");
+      }
+
+      setTests((currentTests) =>
+        currentTests.filter((test) => test.id !== id),
+      );
+      setSuccessMessage("Load test deleted.");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not delete load test",
+      );
+    } finally {
+      setDeletingTestId(undefined);
     }
   };
 
@@ -264,7 +266,10 @@ export const CreateLoadTest = ({
           tests={tests}
           isLoading={isLoadingTests}
           onStop={handleStop}
+          onDelete={handleDelete}
+          onOpenRunningTest={onOpenRunningTest}
           stoppingTestId={stoppingTestId}
+          deletingTestId={deletingTestId}
         />
       </motion.div>
 
@@ -280,47 +285,40 @@ export const CreateLoadTest = ({
   );
 };
 
-function parseLoadTestProgressEvent(data: unknown) {
-  if (typeof data !== "string") {
-    return null;
+function areLoadTestListsEqual(
+  currentTests: LoadTestListItem[],
+  nextTests: LoadTestListItem[],
+) {
+  if (currentTests.length !== nextTests.length) {
+    return false;
   }
 
-  try {
-    const event = JSON.parse(data) as LoadTestProgressEvent;
-
-    if (
-      event.type !== "loadtest:progress" ||
-      typeof event.id !== "string" ||
-      typeof event.progress !== "number" ||
-      typeof event.currentUsers !== "number" ||
-      (event.duration !== undefined && typeof event.duration !== "number") ||
-      !["running", "completed", "failed", "stopped"].includes(event.status)
-    ) {
-      return null;
-    }
-
-    return event;
-  } catch {
-    return null;
-  }
+  return currentTests.every((test, index) =>
+    areLoadTestRecordsEqual(test, nextTests[index]),
+  );
 }
 
-function createLoadTestSocketUrl(id: string) {
-  const url = new URL(LOADTEST_WS_URL);
+function areLoadTestRecordsEqual(
+  currentTest: LoadTestListItem,
+  nextTest: LoadTestListItem,
+) {
+  return (
+    currentTest.id === nextTest.id &&
+    currentTest.url === nextTest.url &&
+    currentTest.method === nextTest.method &&
+    currentTest.status === nextTest.status &&
+    currentTest.progress === nextTest.progress &&
+    currentTest.currentUsers === nextTest.currentUsers &&
+    currentTest.totalUsers === nextTest.totalUsers &&
+    currentTest.latency === nextTest.latency &&
+    currentTest.requestsPerSecond === nextTest.requestsPerSecond &&
+    currentTest.errorRate === nextTest.errorRate &&
+    currentTest.errors === nextTest.errors &&
+    currentTest.duration === nextTest.duration &&
+    currentTest.errorMessage === nextTest.errorMessage
+  );
+}
 
-  if (url.protocol === "http:") {
-    url.protocol = "ws:";
-  }
-
-  if (url.protocol === "https:") {
-    url.protocol = "wss:";
-  }
-
-  if (url.pathname === "/") {
-    url.pathname = "/loadtest/events";
-  }
-
-  url.searchParams.set("id", id);
-
-  return url;
+function isLoadTestActive(test: LoadTestListItem) {
+  return test.status === "queued" || test.status === "running";
 }

@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { auth } from "../../../src/lib/auth";
 import {
   createLoadTestRecord,
+  deleteLoadTestRecord,
   getLoadTestLog,
   getLoadTestRecord,
   listLoadTestRecords,
@@ -127,6 +128,38 @@ export async function stopLoadTest(req: Request, res: Response) {
     });
   } catch (error) {
     handleLoadTestError(error, res, "Could not stop load test");
+  }
+}
+
+export async function deleteLoadTest(req: Request, res: Response) {
+  try {
+    const userId = await getRequiredUserId(req);
+    const id = req.params.id;
+
+    if (typeof id !== "string") {
+      res.status(400).json({
+        success: false,
+        message: "Load test id is required",
+      });
+      return;
+    }
+
+    const loadTest = await deleteLoadTestRecord(userId, id);
+
+    if (!loadTest) {
+      res.status(404).json({
+        success: false,
+        message: "Load test not found",
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: loadTest,
+    });
+  } catch (error) {
+    handleLoadTestError(error, res, "Could not delete load test");
   }
 }
 

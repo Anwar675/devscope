@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { Activity, Clock, Users, Zap, type LucideIcon } from "lucide-react";
+import type { LoadTestLiveSnapshot } from "./running-loadtest";
 
 type LiveStatColor = "blue" | "purple" | "green" | "orange";
 
@@ -35,14 +36,38 @@ const liveStatColors: Record<
   },
 };
 
-const liveStats: LiveStat[] = [
-  { label: "Active Users", value: "100 / 100", icon: Users, color: "blue" },
-  { label: "Requests/sec", value: "850", icon: Zap, color: "purple" },
-  { label: "Avg Latency", value: "245ms", icon: Clock, color: "green" },
-  { label: "Error Rate", value: "0.8%", icon: Activity, color: "orange" },
-];
+interface LoadTestLiveStatsProps {
+  snapshot: LoadTestLiveSnapshot;
+}
 
-export const LoadTestLiveStats = () => {
+export const LoadTestLiveStats = ({ snapshot }: LoadTestLiveStatsProps) => {
+  const liveStats: LiveStat[] = [
+    {
+      label: "Active Users",
+      value: `${snapshot.currentUsers} / ${snapshot.totalUsers}`,
+      icon: Users,
+      color: "blue",
+    },
+    {
+      label: "Requests/sec",
+      value: formatMetric(snapshot.requestsPerSecond),
+      icon: Zap,
+      color: "purple",
+    },
+    {
+      label: "Avg Latency",
+      value: snapshot.latency,
+      icon: Clock,
+      color: "green",
+    },
+    {
+      label: "Error Rate",
+      value: `${formatMetric(snapshot.errorRate)}%`,
+      icon: Activity,
+      color: "orange",
+    },
+  ];
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
       {liveStats.map((stat, idx) => {
@@ -67,3 +92,9 @@ export const LoadTestLiveStats = () => {
     </div>
   );
 };
+
+function formatMetric(value: number) {
+  return value.toLocaleString("en-US", {
+    maximumFractionDigits: value < 10 ? 2 : value < 100 ? 1 : 0,
+  });
+}

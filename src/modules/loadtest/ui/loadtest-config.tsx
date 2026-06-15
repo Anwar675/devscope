@@ -27,6 +27,20 @@ export const LoadTestConfig = ({
   onStart,
   successMessage,
 }: LoadTestConfigProps) => {
+  const updateDuration = (duration: number) => {
+    setTestConfig({
+      ...testConfig,
+      duration,
+      rampUp: Math.min(testConfig.rampUp, duration),
+    });
+  };
+  const updateRampUp = (rampUp: number) => {
+    setTestConfig({
+      ...testConfig,
+      rampUp: Math.min(rampUp, testConfig.duration),
+    });
+  };
+
   return (
      <motion.div
               initial={{ opacity: 0, x: 20 }}
@@ -66,7 +80,7 @@ export const LoadTestConfig = ({
                   <div>
                     <label className="flex items-center gap-2 text-blue-200 mb-3">
                       <Clock className="w-5 h-5" />
-                      Duration (seconds)
+                      Total Duration (seconds)
                     </label>
                     <div className="flex items-center gap-4">
                       <input
@@ -75,13 +89,13 @@ export const LoadTestConfig = ({
                         max="3600"
                         step="30"
                         value={testConfig.duration}
-                        onChange={(e) => setTestConfig({ ...testConfig, duration: parseInt(e.target.value) })}
+                        onChange={(e) => updateDuration(parseInt(e.target.value))}
                         className="flex-1"
                       />
                       <input
                         type="number"
                         value={testConfig.duration}
-                        onChange={(e) => setTestConfig({ ...testConfig, duration: parseInt(e.target.value) })}
+                        onChange={(e) => updateDuration(parseInt(e.target.value))}
                         className="w-24 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
                       />
                     </div>
@@ -97,16 +111,18 @@ export const LoadTestConfig = ({
                       <input
                         type="range"
                         min="0"
-                        max="300"
+                        max={Math.min(300, testConfig.duration)}
                         step="10"
                         value={testConfig.rampUp}
-                        onChange={(e) => setTestConfig({ ...testConfig, rampUp: parseInt(e.target.value) })}
+                        onChange={(e) => updateRampUp(parseInt(e.target.value))}
                         className="flex-1"
                       />
                       <input
                         type="number"
+                        min="0"
+                        max={testConfig.duration}
                         value={testConfig.rampUp}
-                        onChange={(e) => setTestConfig({ ...testConfig, rampUp: parseInt(e.target.value) })}
+                        onChange={(e) => updateRampUp(parseInt(e.target.value))}
                         className="w-24 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
                       />
                     </div>

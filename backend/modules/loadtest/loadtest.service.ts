@@ -16,6 +16,12 @@ const MAX_DURATION_SECONDS = 3_600;
 const LOG_TTL_MS = 24 * 60 * 60 * 1_000;
 const LIVE_PROGRESS_UPDATE_MS = 3_000;
 const URL_PRECHECK_TIMEOUT_MS = 5_000;
+const MAX_LATENCY_LOG_LINES = 20;
+const LATENCY_ANOMALY_MIN_DELTA_MS = 100;
+const LATENCY_SPIKE_RATIO = 2.5;
+const LATENCY_DROP_RATIO = 0.4;
+const MAX_K6_STDERR_BUFFER_LENGTH = 4_000;
+const MAX_REALTIME_SERIES_POINTS = 80;
 
 type LoadTestMethod = (typeof allowedMethods)[number];
 
@@ -41,7 +47,10 @@ export interface LoadTestRecord extends CreateLoadTestInput {
   currentUsers: number;
   totalUsers: number;
   latency: string;
+  requestsPerSecond: number;
+  errorRate: number;
   errors: number;
+  realtimeSeries: LoadTestRealtimeSample[];
   createdAt: string;
   startedAt?: string | null;
   completedAt?: string | null;
@@ -52,6 +61,7 @@ export interface LoadTestRecord extends CreateLoadTestInput {
 }
 
 type DbLoadTestRun = typeof loadTestRun.$inferSelect;
+type RunningDbLoadTestRun = DbLoadTestRun & { startedAt: Date };
 
 type K6Summary = {
   state?: {
@@ -69,12 +79,41 @@ type LoadTestMetrics = {
   latency: string;
   errors: number;
   duration: number;
+  requests: number;
+  errorRate: number;
+  finalSummary: LoadTestFinalSummary;
   httpReqDuration: {
     avg: number;
     "p(90)": number;
     "p(95)": number;
     "p(99)": number;
   };
+};
+
+type LoadTestFinalSummary = {
+  avgLatency: number;
+  p90: number;
+  p95: number;
+  p99: number;
+  requests: number;
+  errors: number;
+  errorRate: number;
+  duration: number;
+};
+
+type K6Sample = {
+  latencyMs: number;
+  failed: boolean;
+  currentUsers: number;
+};
+
+type LoadTestRealtimeSample = {
+  duration: number;
+  users: number;
+  latency: number;
+  errors: number;
+  errorRate: number;
+  requestsPerSecond: number;
 };
 
 type ActiveLoadTest = {
@@ -196,6 +235,7 @@ export async function stopLoadTestRecord(userId: string, id: string) {
     currentUsers: 0,
     status: "stopped",
     latency: stoppedRecord.latency,
+    latencyMs: parseLatencyMs(stoppedRecord.latency),
     duration: getActualDurationSeconds(stoppedRecord) ?? stoppedRecord.duration,
     errors: stoppedRecord.errors,
     errorMessage: stoppedRecord.errorMessage,
@@ -204,21 +244,36 @@ export async function stopLoadTestRecord(userId: string, id: string) {
   return mapLoadTestRecord(stoppedRecord);
 }
 
+export async function deleteLoadTestRecord(userId: string, id: string) {
+  const [record] = await db
+    .select({ status: loadTestRun.status })
+    .from(loadTestRun)
+    .where(and(eq(loadTestRun.userId, userId), eq(loadTestRun.id, id)))
+    .limit(1);
+
+  if (!record) {
+    return null;
+  }
+
+  if (["queued", "running"].includes(record.status)) {
+    throw new LoadTestValidationError("Stop active tests before deleting");
+  }
+
+  const [deletedRecord] = await db
+    .delete(loadTestRun)
+    .where(and(eq(loadTestRun.userId, userId), eq(loadTestRun.id, id)))
+    .returning();
+
+  return deletedRecord ? mapLoadTestRecord(deletedRecord) : null;
+}
+
 async function runLoadTest(record: DbLoadTestRun) {
   let liveProgress: ReturnType<typeof createLiveProgressUpdater> | undefined;
   let startedAt: Date | null = null;
   const tempDir = join(tmpdir(), "devscope-k6");
   const scriptPath = join(tempDir, `${record.id}.js`);
   const summaryPath = join(tempDir, `${record.id}.summary.json`);
-  const logLines: string[] = [
-    `Load test: ${record.id}`,
-    `Target: ${record.method} ${record.url}`,
-    `Users: ${record.users}`,
-    `Duration: ${record.duration}s`,
-    `Ramp-up: ${record.rampUp}s`,
-    `Started: ${new Date().toISOString()}`,
-    "",
-  ];
+  const latencyLogLines: string[] = [];
 
   try {
     await mkdir(tempDir, { recursive: true });
@@ -231,48 +286,56 @@ async function runLoadTest(record: DbLoadTestRun) {
 
     startedAt = new Date();
     await markRunning(record.id, startedAt);
-    const progressUpdater = createLiveProgressUpdater(record);
+    const runningRecord = { ...record, startedAt };
+    const progressUpdater = createLiveProgressUpdater(
+      runningRecord,
+      latencyLogLines,
+    );
     liveProgress = progressUpdater;
 
-    await executeK6(scriptPath, summaryPath, logLines, record, (output) => {
+    await executeK6(scriptPath, summaryPath, record, (output) => {
       progressUpdater.handleOutput(output);
     });
     await liveProgress.flush();
 
     const summary = await readK6Summary(summaryPath);
     const metrics = extractK6Metrics(summary);
-    const failedRate = summary.metrics?.http_req_failed?.values?.rate ?? 0;
-    logLines.push(
-      "Final metrics:",
-      JSON.stringify(
-        {
-          http_req_duration: metrics.httpReqDuration,
-          duration: metrics.duration,
-          errors: metrics.errors,
-          failedRate,
-        },
-        null,
-        2,
-      ),
-      "",
-    );
     const failureMessage =
-      failedRate > 0
+      metrics.errorRate > 0
         ? `k6 completed with ${metrics.errors} failed requests`
         : null;
+    const latencyLog = formatLatencyLog(latencyLogLines);
+    const finalRequestsPerSecond = roundRealtimeMetric(
+      metrics.requests / metrics.duration,
+    );
+    const finalErrorRate = roundRealtimeMetric(metrics.errorRate * 100);
+    const finalRealtimeSeries = appendRealtimeSample(
+      liveProgress.getRealtimeSeries(),
+      createRealtimeSample({
+        duration: metrics.duration,
+        users: record.totalUsers,
+        latency: parseLatencyMs(metrics.latency) ?? 0,
+        errors: metrics.errors,
+        errorRate: finalErrorRate,
+        requestsPerSecond: finalRequestsPerSecond,
+      }),
+    );
 
     await db
       .update(loadTestRun)
       .set({
-        status: failedRate > 0 ? "failed" : "completed",
+        status: metrics.errorRate > 0 ? "failed" : "completed",
         progress: 100,
         currentUsers: record.totalUsers,
         latency: metrics.latency,
+        requestsPerSecond: finalRequestsPerSecond,
+        errorRate: finalErrorRate,
         duration: metrics.duration,
         errors: metrics.errors,
-        summary,
-        log: logLines.join("\n"),
-        logExpiresAt: getLogExpiresAt(),
+        realtimeSeries: finalRealtimeSeries,
+        summary: metrics.finalSummary,
+        log: latencyLog,
+        logExpiresAt: latencyLog ? getLogExpiresAt() : null,
         errorMessage: failureMessage,
         completedAt: new Date(),
       })
@@ -283,8 +346,11 @@ async function runLoadTest(record: DbLoadTestRun) {
       id: record.id,
       progress: 100,
       currentUsers: record.totalUsers,
-      status: failedRate > 0 ? "failed" : "completed",
+      status: metrics.errorRate > 0 ? "failed" : "completed",
       latency: metrics.latency,
+      latencyMs: parseLatencyMs(metrics.latency),
+      requestsPerSecond: finalRequestsPerSecond,
+      errorRate: finalErrorRate,
       duration: metrics.duration,
       errors: metrics.errors,
       errorMessage: failureMessage,
@@ -296,7 +362,10 @@ async function runLoadTest(record: DbLoadTestRun) {
       error instanceof LoadTestStoppedError ||
       (await isLoadTestStopped(record.id))
     ) {
-      const stoppedRecord = await markStopped(record.id, logLines.join("\n"));
+      const stoppedRecord = await markStopped(
+        record.id,
+        formatLatencyLog(latencyLogLines) ?? undefined,
+      );
 
       publishLoadTestProgress({
         type: "loadtest:progress",
@@ -305,6 +374,7 @@ async function runLoadTest(record: DbLoadTestRun) {
         currentUsers: 0,
         status: "stopped",
         latency: stoppedRecord.latency,
+        latencyMs: parseLatencyMs(stoppedRecord.latency),
         duration:
           getActualDurationSeconds(stoppedRecord) ?? stoppedRecord.duration,
         errors: stoppedRecord.errors,
@@ -315,7 +385,7 @@ async function runLoadTest(record: DbLoadTestRun) {
     }
 
     const message = error instanceof Error ? error.message : "Load test failed";
-    logLines.push("[devscope]", message, "");
+    const latencyLog = formatLatencyLog(latencyLogLines);
 
     await db
       .update(loadTestRun)
@@ -323,8 +393,8 @@ async function runLoadTest(record: DbLoadTestRun) {
         status: "failed",
         progress: 100,
         currentUsers: 0,
-        log: logLines.join("\n"),
-        logExpiresAt: getLogExpiresAt(),
+        log: latencyLog,
+        logExpiresAt: latencyLog ? getLogExpiresAt() : null,
         errorMessage: message,
         completedAt: new Date(),
       })
@@ -378,10 +448,8 @@ async function markStopped(id: string, log?: string) {
       status: "stopped",
       progress: 100,
       currentUsers: 0,
-      log: existingLog
-        ? `${existingLog}\n[devscope] Load test stopped by user`
-        : "[devscope] Load test stopped by user",
-      logExpiresAt: getLogExpiresAt(),
+      log: existingLog || null,
+      logExpiresAt: existingLog ? getLogExpiresAt() : null,
       errorMessage: "Load test stopped by user",
       completedAt: stoppedAt,
     })
@@ -391,9 +459,20 @@ async function markStopped(id: string, log?: string) {
   return record;
 }
 
-function createLiveProgressUpdater(record: DbLoadTestRun) {
+function createLiveProgressUpdater(
+  record: RunningDbLoadTestRun,
+  latencyLogLines: string[],
+) {
   let progress = 1;
   let currentUsers = 0;
+  let latencySum = 0;
+  let requestCount = 0;
+  let previousLatencyMs: number | undefined;
+  let errorCount = 0;
+  let latency = "-";
+  let requestsPerSecond = 0;
+  let errorRate = 0;
+  let realtimeSeries = getRealtimeSeries(record.realtimeSeries);
   let lastPersistedAt = 0;
   let pendingPersist: Promise<unknown> = Promise.resolve();
 
@@ -402,6 +481,12 @@ function createLiveProgressUpdater(record: DbLoadTestRun) {
     const snapshot = {
       progress,
       currentUsers,
+      latency,
+      requestsPerSecond,
+      errorRate,
+      errors: errorCount,
+      realtimeSeries,
+      status: "running",
     };
 
     pendingPersist = pendingPersist
@@ -417,6 +502,24 @@ function createLiveProgressUpdater(record: DbLoadTestRun) {
   return {
     handleOutput(output: string) {
       const parsedProgress = parseK6Progress(output, record);
+      const samples = parseK6Samples(output, record);
+
+      for (const sample of samples) {
+        trackLatencyAnomaly(
+          latencyLogLines,
+          sample.latencyMs,
+          previousLatencyMs,
+        );
+        previousLatencyMs = sample.latencyMs;
+        latencySum += sample.latencyMs;
+        requestCount += 1;
+
+        if (sample.failed) {
+          errorCount += 1;
+        }
+
+        currentUsers = sample.currentUsers;
+      }
 
       if (!parsedProgress) {
         if (output.includes("devscope-progress")) {
@@ -431,11 +534,28 @@ function createLiveProgressUpdater(record: DbLoadTestRun) {
 
       progress = parsedProgress.progress ?? progress;
       currentUsers = parsedProgress.currentUsers ?? currentUsers;
+      const liveMetrics = getLiveMetrics();
+      latency = liveMetrics.latency;
+      requestsPerSecond = liveMetrics.requestsPerSecond;
+      errorRate = liveMetrics.errorRate;
+      const duration = getElapsedDurationSeconds(record.startedAt, new Date()) ?? 0;
+      realtimeSeries = appendRealtimeSample(
+        realtimeSeries,
+        createRealtimeSample({
+          duration,
+          users: currentUsers,
+          latency: liveMetrics.latencyMs ?? 0,
+          errors: errorCount,
+          errorRate,
+          requestsPerSecond,
+        }),
+      );
       console.log("[loadtest:progress] parse:success", {
         id: record.id,
         parsedProgress,
         progress,
         currentUsers,
+        liveMetrics,
       });
       publishLoadTestProgress({
         type: "loadtest:progress",
@@ -443,6 +563,12 @@ function createLiveProgressUpdater(record: DbLoadTestRun) {
         progress,
         currentUsers,
         status: "running",
+        latency: liveMetrics.latency,
+        latencyMs: liveMetrics.latencyMs,
+        requestsPerSecond: liveMetrics.requestsPerSecond,
+        errorRate: liveMetrics.errorRate,
+        errors: errorCount,
+        duration,
       });
 
       if (Date.now() - lastPersistedAt >= LIVE_PROGRESS_UPDATE_MS) {
@@ -456,13 +582,37 @@ function createLiveProgressUpdater(record: DbLoadTestRun) {
 
       await pendingPersist;
     },
+    getRealtimeSeries() {
+      return realtimeSeries;
+    },
   };
+
+  function getLiveMetrics() {
+    const now = Date.now();
+    const elapsedSeconds = Math.max(
+      (now - record.startedAt.getTime()) / 1000,
+      1,
+    );
+    const latencyMs =
+      requestCount > 0 ? roundLatencyMs(latencySum / requestCount) : undefined;
+    const requestsPerSecond = roundRealtimeMetric(requestCount / elapsedSeconds);
+    const errorRate =
+      requestCount > 0
+        ? roundRealtimeMetric((errorCount / requestCount) * 100)
+        : 0;
+
+    return {
+      latency: latencyMs !== undefined ? formatLatencyMs(latencyMs) : "-",
+      latencyMs,
+      requestsPerSecond,
+      errorRate,
+    };
+  }
 }
 
 function executeK6(
   scriptPath: string,
   summaryPath: string,
-  logLines: string[],
   record: DbLoadTestRun,
   onOutput: (output: string) => void,
 ) {
@@ -510,8 +660,7 @@ function executeK6(
       }
 
       onOutput(output);
-      stderr += output;
-      logLines.push(output.trim());
+      stderr = appendBoundedK6Stderr(stderr, output);
     });
 
     child.on("error", (error) => {
@@ -543,19 +692,28 @@ function executeK6(
   });
 }
 
+function appendBoundedK6Stderr(current: string, next: string) {
+  const combined = current + next;
+
+  if (combined.length <= MAX_K6_STDERR_BUFFER_LENGTH) {
+    return combined;
+  }
+
+  return combined.slice(-MAX_K6_STDERR_BUFFER_LENGTH);
+}
+
 function parseK6Progress(output: string, record: DbLoadTestRun) {
-  const latestMatch = extractK6ProgressMessages(output).at(-1);
+  const latestMatch = extractK6TelemetryMessages(
+    output,
+    "devscope-progress",
+  ).at(-1);
 
   if (!latestMatch) {
     return null;
   }
 
   try {
-    const parsed = JSON.parse(latestMatch) as {
-      progress?: unknown;
-      currentUsers?: unknown;
-      progressType?: unknown;
-    };
+    const parsed = JSON.parse(latestMatch) as Record<string, unknown>;
     const progress = Number(parsed.progress);
     const currentUsers = Number(parsed.currentUsers);
     const normalizedProgress = normalizeK6Progress(progress);
@@ -586,11 +744,166 @@ function parseK6Progress(output: string, record: DbLoadTestRun) {
   }
 }
 
-function extractK6ProgressMessages(output: string) {
+function parseK6Samples(output: string, record: DbLoadTestRun) {
+  const messages = extractK6TelemetryMessages(output, "devscope-sample");
+  const samples: K6Sample[] = [];
+
+  for (const message of messages) {
+    try {
+      const parsed = JSON.parse(message) as Record<string, unknown>;
+      const latencyMs = Number(parsed.latencyMs);
+      const currentUsers = Number(parsed.currentUsers);
+
+      if (!Number.isFinite(latencyMs)) {
+        continue;
+      }
+
+      samples.push({
+        latencyMs: Math.max(0, latencyMs),
+        failed: parsed.failed === true,
+        currentUsers: Number.isFinite(currentUsers)
+          ? Math.min(record.totalUsers, Math.max(0, Math.round(currentUsers)))
+          : 0,
+      });
+    } catch {
+      continue;
+    }
+  }
+
+  return samples;
+}
+
+function trackLatencyAnomaly(
+  latencyLogLines: string[],
+  latencyMs: number,
+  previousLatencyMs: number | undefined,
+) {
+  if (
+    latencyLogLines.length >= MAX_LATENCY_LOG_LINES ||
+    previousLatencyMs === undefined ||
+    previousLatencyMs <= 0
+  ) {
+    return;
+  }
+
+  const deltaMs = Math.abs(latencyMs - previousLatencyMs);
+
+  if (deltaMs < LATENCY_ANOMALY_MIN_DELTA_MS) {
+    return;
+  }
+
+  if (latencyMs >= previousLatencyMs * LATENCY_SPIKE_RATIO) {
+    latencyLogLines.push(
+      `Latency spike: ${formatLatencyMs(previousLatencyMs)} -> ${formatLatencyMs(
+        latencyMs,
+      )}`,
+    );
+    return;
+  }
+
+  if (latencyMs <= previousLatencyMs * LATENCY_DROP_RATIO) {
+    latencyLogLines.push(
+      `Latency drop: ${formatLatencyMs(previousLatencyMs)} -> ${formatLatencyMs(
+        latencyMs,
+      )}`,
+    );
+  }
+}
+
+function formatLatencyLog(latencyLogLines: string[]) {
+  return latencyLogLines.length > 0 ? latencyLogLines.join("\n") : null;
+}
+
+function getRealtimeSeries(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const series: LoadTestRealtimeSample[] = [];
+
+  for (const item of value) {
+    if (!isRecord(item)) {
+      continue;
+    }
+
+    const duration = Number(item.duration);
+    const users = Number(item.users);
+    const latency = Number(item.latency);
+    const errors = Number(item.errors);
+    const errorRate = Number(item.errorRate);
+    const requestsPerSecond = Number(item.requestsPerSecond);
+
+    if (
+      !Number.isFinite(duration) ||
+      !Number.isFinite(users) ||
+      !Number.isFinite(latency) ||
+      !Number.isFinite(errors) ||
+      !Number.isFinite(errorRate) ||
+      !Number.isFinite(requestsPerSecond)
+    ) {
+      continue;
+    }
+
+    series.push(
+      createRealtimeSample({
+        duration,
+        users,
+        latency,
+        errors,
+        errorRate,
+        requestsPerSecond,
+      }),
+    );
+  }
+
+  return series.slice(-MAX_REALTIME_SERIES_POINTS);
+}
+
+function createRealtimeSample(sample: LoadTestRealtimeSample) {
+  return {
+    duration: Math.max(0, Math.round(sample.duration)),
+    users: Math.max(0, Math.round(sample.users)),
+    latency: roundLatencyMs(sample.latency),
+    errors: Math.max(0, Math.round(sample.errors)),
+    errorRate: roundRealtimeMetric(sample.errorRate),
+    requestsPerSecond: roundRealtimeMetric(sample.requestsPerSecond),
+  };
+}
+
+function appendRealtimeSample(
+  series: LoadTestRealtimeSample[],
+  sample: LoadTestRealtimeSample,
+) {
+  const nextSample = createRealtimeSample(sample);
+  const previousSample = series.at(-1);
+
+  if (previousSample && areRealtimeSamplesEqual(previousSample, nextSample)) {
+    return series;
+  }
+
+  return [...series, nextSample].slice(-MAX_REALTIME_SERIES_POINTS);
+}
+
+function areRealtimeSamplesEqual(
+  currentSample: LoadTestRealtimeSample,
+  nextSample: LoadTestRealtimeSample,
+) {
+  return (
+    currentSample.duration === nextSample.duration &&
+    currentSample.users === nextSample.users &&
+    currentSample.latency === nextSample.latency &&
+    currentSample.errors === nextSample.errors &&
+    currentSample.errorRate === nextSample.errorRate &&
+    currentSample.requestsPerSecond === nextSample.requestsPerSecond
+  );
+}
+
+function extractK6TelemetryMessages(output: string, level: string) {
   const cleanOutput = stripAnsi(output);
   const messages: string[] = [];
+  const escapedLevel = escapeRegExp(level);
   const rawMatches = cleanOutput.match(
-    /\{[^\r\n]*"level":"devscope-progress"[^\r\n]*\}/g,
+    new RegExp(`\\{[^\\r\\n]*"level":"${escapedLevel}"[^\\r\\n]*\\}`, "g"),
   );
 
   if (rawMatches) {
@@ -600,7 +913,7 @@ function extractK6ProgressMessages(output: string) {
   for (const line of cleanOutput.split(/\r?\n/)) {
     const trimmedLine = line.trim();
 
-    if (!trimmedLine.includes("devscope-progress")) {
+    if (!trimmedLine.includes(level)) {
       continue;
     }
 
@@ -619,6 +932,10 @@ function extractK6ProgressMessages(output: string) {
   }
 
   return messages;
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function parseJsonObject(value: string) {
@@ -681,40 +998,112 @@ function extractK6Metrics(summary: K6Summary): LoadTestMetrics {
     summary.metrics?.iteration_duration?.values?.max;
 
   const httpReqDuration = {
-    avg: roundMetric(durationValues?.avg),
-    "p(90)": roundMetric(durationValues?.["p(90)"]),
-    "p(95)": roundMetric(durationValues?.["p(95)"]),
-    "p(99)": roundMetric(durationValues?.["p(99)"]),
+    avg: roundLatencyMs(durationValues?.avg),
+    "p(90)": roundLatencyMs(durationValues?.["p(90)"]),
+    "p(95)": roundLatencyMs(durationValues?.["p(95)"]),
+    "p(99)": roundLatencyMs(durationValues?.["p(99)"]),
   };
   const averageLatency = httpReqDuration.avg;
-  const failedRate = failedValues?.rate ?? 0;
-  const requestCount = requestValues?.count ?? 0;
+  const errorRate = roundRate(failedValues?.rate);
+  const requestCount = Math.round(requestValues?.count ?? 0);
+  const errors = Math.round(errorRate * requestCount);
+  const duration =
+    testRunDurationMs && testRunDurationMs > 0
+      ? Math.max(1, Math.round(testRunDurationMs / 1000))
+      : 1;
+  const finalSummary = {
+    avgLatency: httpReqDuration.avg,
+    p90: httpReqDuration["p(90)"],
+    p95: httpReqDuration["p(95)"],
+    p99: httpReqDuration["p(99)"],
+    requests: requestCount,
+    errors,
+    errorRate,
+    duration,
+  };
 
   return {
-    latency: averageLatency > 0 ? `${averageLatency}ms` : "-",
-    errors: Math.round(failedRate * requestCount),
-    duration:
-      testRunDurationMs && testRunDurationMs > 0
-        ? Math.max(1, Math.round(testRunDurationMs / 1000))
-        : 1,
+    latency: averageLatency > 0 ? formatLatencyMs(averageLatency) : "-",
+    errors,
+    duration,
+    requests: requestCount,
+    errorRate,
+    finalSummary,
     httpReqDuration,
   };
 }
 
-function roundMetric(value: number | undefined) {
-  return Math.round(value ?? 0);
+function roundRealtimeMetric(value: number | undefined) {
+  if (value === undefined || !Number.isFinite(value)) {
+    return 0;
+  }
+
+  if (value < 10) {
+    return Number(value.toFixed(2));
+  }
+
+  if (value < 100) {
+    return Number(value.toFixed(1));
+  }
+
+  return Math.round(value);
+}
+
+function roundLatencyMs(value: number | undefined) {
+  if (value === undefined || !Number.isFinite(value)) {
+    return 0;
+  }
+
+  if (value < 1) {
+    return Number(value.toFixed(3));
+  }
+
+  if (value < 100) {
+    return Number(value.toFixed(2));
+  }
+
+  return Number(value.toFixed(1));
+}
+
+function roundRate(value: number | undefined) {
+  if (value === undefined || !Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Number(value.toFixed(4));
+}
+
+function formatLatencyMs(value: number) {
+  return `${value.toLocaleString("en-US", {
+    maximumFractionDigits: value < 1 ? 3 : value < 100 ? 2 : 1,
+  })}ms`;
+}
+
+function parseLatencyMs(latency: string) {
+  const value = Number.parseFloat(latency);
+
+  return Number.isFinite(value) ? roundLatencyMs(value) : undefined;
 }
 
 function createK6Script(record: DbLoadTestRun) {
-  const hasRampUp = record.rampUp > 0;
-  const duration = formatK6Duration(record.duration);
-  const rampUp = formatK6Duration(record.rampUp);
+  const totalDurationSeconds = Math.max(1, Math.trunc(record.duration));
+  const rampUpSeconds = Math.min(
+    totalDurationSeconds,
+    Math.max(0, Math.trunc(record.rampUp)),
+  );
+  const steadyDurationSeconds = totalDurationSeconds - rampUpSeconds;
+  const hasRampUp = rampUpSeconds > 0;
+  const duration = formatK6Duration(totalDurationSeconds);
+  const rampUp = formatK6Duration(rampUpSeconds);
+  const steadyDuration = formatK6Duration(steadyDurationSeconds);
+  const steadyStage =
+    steadyDurationSeconds > 0
+      ? `\n    { duration: ${JSON.stringify(steadyDuration)}, target: Number(__ENV.DEVSCOPE_USERS) },`
+      : "";
   const options = hasRampUp
     ? `{
   stages: [
-    { duration: ${JSON.stringify(rampUp)}, target: Number(__ENV.DEVSCOPE_USERS) },
-    { duration: ${JSON.stringify(duration)}, target: Number(__ENV.DEVSCOPE_USERS) },
-    { duration: "1s", target: 0 },
+    { duration: ${JSON.stringify(rampUp)}, target: Number(__ENV.DEVSCOPE_USERS) },${steadyStage}
   ],
 }`
     : `{
@@ -732,21 +1121,22 @@ export const options = ${options};
 let lastProgressAt = 0;
 
 export default function () {
-  reportProgress();
   const response = http.request(__ENV.DEVSCOPE_METHOD, __ENV.DEVSCOPE_TARGET_URL);
-
-  if (response.error || response.status >= 400 || response.status === 0) {
-    console.error(JSON.stringify({
-      level: "error",
-      method: __ENV.DEVSCOPE_METHOD,
-      url: __ENV.DEVSCOPE_TARGET_URL,
-      status: response.status,
-      error: response.error,
-      body: response.body ? String(response.body).slice(0, 500) : "",
-    }));
-  }
+  reportSample(response);
+  reportProgress();
 
   sleep(1);
+}
+
+function reportSample(response) {
+  console.log(JSON.stringify({
+    level: "devscope-sample",
+    latencyMs: response.timings.duration,
+    status: response.status,
+    failed: Boolean(response.error || response.status >= 400 || response.status === 0),
+    currentUsers: exec.instance.vusActive ?? 0,
+    scenario: exec.scenario.name,
+  }));
 }
 
 function reportProgress() {
@@ -815,6 +1205,12 @@ function parseLoadTestInput(input: unknown): CreateLoadTestInput {
   if (duration > MAX_DURATION_SECONDS || rampUp > MAX_DURATION_SECONDS) {
     throw new LoadTestValidationError(
       `Duration and ramp-up cannot exceed ${MAX_DURATION_SECONDS} seconds`,
+    );
+  }
+
+  if (rampUp > duration) {
+    throw new LoadTestValidationError(
+      "Ramp-up cannot be greater than total duration",
     );
   }
 
@@ -914,7 +1310,10 @@ function mapLoadTestRecord(record: DbLoadTestRun): LoadTestRecord {
     currentUsers: record.currentUsers,
     totalUsers: record.totalUsers,
     latency: record.latency,
+    requestsPerSecond: record.requestsPerSecond,
+    errorRate: record.errorRate,
     errors: record.errors,
+    realtimeSeries: getRealtimeSeries(record.realtimeSeries),
     createdAt: record.createdAt.toISOString(),
     startedAt: record.startedAt?.toISOString() ?? null,
     completedAt: record.completedAt?.toISOString() ?? null,
@@ -954,6 +1353,12 @@ function getElapsedDurationSeconds(start: Date | null, end: Date) {
 function getSummaryDurationSeconds(summary: unknown) {
   if (!isRecord(summary)) {
     return null;
+  }
+
+  const duration = Number(summary.duration);
+
+  if (Number.isFinite(duration) && duration > 0) {
+    return Math.max(1, Math.round(duration));
   }
 
   const state = summary.state;

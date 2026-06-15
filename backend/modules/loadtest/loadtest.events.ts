@@ -14,6 +14,9 @@ export type LoadTestProgressEvent = {
   currentUsers: number;
   status: "running" | "completed" | "failed" | "stopped";
   latency?: string;
+  latencyMs?: number;
+  requestsPerSecond?: number;
+  errorRate?: number;
   duration?: number;
   errors?: number;
   errorMessage?: string | null;

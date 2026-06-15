@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -98,7 +99,12 @@ export const loadTestRun = pgTable(
     currentUsers: integer("current_users").notNull().default(0),
     totalUsers: integer("total_users").notNull(),
     latency: text("latency").notNull().default("-"),
+    requestsPerSecond: doublePrecision("requests_per_second")
+      .notNull()
+      .default(0),
+    errorRate: doublePrecision("error_rate").notNull().default(0),
     errors: integer("errors").notNull().default(0),
+    realtimeSeries: jsonb("realtime_series").notNull().default([]),
     summary: jsonb("summary"),
     log: text("log"),
     logExpiresAt: timestamp("log_expires_at"),

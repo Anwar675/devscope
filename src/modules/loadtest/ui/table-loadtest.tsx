@@ -1,7 +1,15 @@
 "use client";
 
 import { motion } from "motion/react";
-import { CheckCircle2, Clock, Square, SquareIcon, XCircle } from "lucide-react";
+import {
+  Activity,
+  CheckCircle2,
+  Clock,
+  Square,
+  SquareIcon,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 import { useState } from "react";
 
 export interface LoadTestListItem {
@@ -13,26 +21,51 @@ export interface LoadTestListItem {
   currentUsers: number;
   totalUsers: number;
   latency: string;
+  requestsPerSecond: number;
+  errorRate: number;
   errors: number;
+  realtimeSeries?: LoadTestRealtimeSample[];
   duration: number;
   errorMessage?: string | null;
 }
+
+export type LoadTestRealtimeSample = {
+  duration: number;
+  users: number;
+  latency: number;
+  errors: number;
+  errorRate: number;
+  requestsPerSecond: number;
+};
 
 interface LoadTestTableProps {
   tests: LoadTestListItem[];
   isLoading?: boolean;
   stoppingTestId?: string;
+  deletingTestId?: string;
   onStop?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  onOpenRunningTest?: (id: string) => void;
 }
 
 export const LoadTestTable = ({
   tests,
   isLoading = false,
   stoppingTestId,
+  deletingTestId,
   onStop,
+  onDelete,
+  onOpenRunningTest,
 }: LoadTestTableProps) => {
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   const runningCount = tests.filter((test) => test.status === "running").length;
+  const selectTest = (id: string) => {
+    setSelectedTestId(id);
+  };
+  const openRealtimeMetrics = (id: string) => {
+    setSelectedTestId(id);
+    onOpenRunningTest?.(id);
+  };
 
   return (
     <div className="p-6 bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl">
@@ -78,13 +111,16 @@ export const LoadTestTable = ({
               <th className="text-left py-3 px-4 text-sm font-medium text-blue-200/70">
                 Duration
               </th>
+              <th className="text-right py-3 px-4 text-sm font-medium text-blue-200/70">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={9}
                   className="py-8 px-4 text-center text-blue-200/70"
                 >
                   Loading tests...
@@ -95,7 +131,7 @@ export const LoadTestTable = ({
             {!isLoading && tests.length === 0 && (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={9}
                   className="py-8 px-4 text-center text-blue-200/70"
                 >
                   No load tests yet.
@@ -109,11 +145,15 @@ export const LoadTestTable = ({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.05 }}
-                onClick={() => setSelectedTestId(test.id)}
+                onClick={() => selectTest(test.id)}
                 onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) {
+                    return;
+                  }
+
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
-                    setSelectedTestId(test.id);
+                    selectTest(test.id);
                   }
                 }}
                 tabIndex={0}
@@ -261,26 +301,53 @@ export const LoadTestTable = ({
                   </span>
                 </td>
 
-                {/* Duration */}
-                <td className="relative py-4 px-4 ">
+                <td className="py-4 px-4 ">
                   <span className="text-blue-200/70 text-sm">
                     {formatDuration(test.duration)}
                   </span>
-                  {selectedTestId === test.id &&
-                    ["queued", "running"].includes(test.status) && (
+                </td>
+
+                <td className="py-4 px-4">
+                  <div
+                    className="flex items-center justify-end gap-2"
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => openRealtimeMetrics(test.id)}
+                      disabled={!onOpenRunningTest}
+                      title="Open realtime metrics"
+                      aria-label="Open realtime metrics"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-blue-400/30 bg-blue-500/20 text-blue-200 transition-all hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Activity className="h-4 w-4" />
+                    </button>
+
+                    {["queued", "running"].includes(test.status) ? (
                       <button
                         type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onStop?.(test.id);
-                        }}
+                        onClick={() => onStop?.(test.id)}
                         disabled={!onStop || stoppingTestId === test.id}
-                        className="absolute right-4 top-1/2 inline-flex -translate-y-1/2 items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/20 px-3 py-2 text-xs font-medium text-red-200 shadow-lg shadow-black/20 backdrop-blur transition-all hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                        title="Stop load test"
+                        aria-label="Stop load test"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-400/30 bg-red-500/20 text-red-200 transition-all hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <Square className="h-3.5 w-3.5" />
-                        {stoppingTestId === test.id ? "Stopping" : "Stop"}
+                        <Square className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onDelete?.(test.id)}
+                        disabled={!onDelete || deletingTestId === test.id}
+                        title="Delete load test"
+                        aria-label="Delete load test"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-400/30 bg-red-500/20 text-red-200 transition-all hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     )}
+                  </div>
                 </td>
               </motion.tr>
             ))}

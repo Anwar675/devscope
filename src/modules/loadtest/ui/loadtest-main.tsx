@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Activity, Brain, Plus, type LucideIcon } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Headers } from "@/modules/home/headers";
 import { CreateLoadTest } from "./create-loadtest";
 import { LoadTestResults } from "./loadtest-results";
@@ -21,7 +22,11 @@ const tabs: {
 ];
 
 export const LoadTestMain = () => {
-  const [activeTab, setActiveTab] = useState<LoadTestTab>("create");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeTab = parseLoadTestTab(searchParams.get("tab"));
+  const selectedLoadTestId = searchParams.get("id") ?? undefined;
   const [testConfig, setTestConfig] = useState<LoadTestConfigValues>({
     url: "https://api.example.com/products",
     method: "GET",
@@ -29,6 +34,30 @@ export const LoadTestMain = () => {
     duration: 300,
     rampUp: 60,
   });
+  const openTab = (tab: LoadTestTab) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (tab === "create") {
+      params.delete("tab");
+      params.delete("id");
+    } else {
+      params.set("tab", tab);
+
+      if (tab !== "running") {
+        params.delete("id");
+      }
+    }
+
+    const query = params.toString();
+    router.push(query ? `${pathname}?${query}` : pathname);
+  };
+  const openRunningTest = (id: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    params.set("tab", "running");
+    params.set("id", id);
+    router.push(`${pathname}?${params.toString()}`);
+  };
 
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-950 via-blue-950 to-slate-950 p-8">
@@ -40,7 +69,7 @@ export const LoadTestMain = () => {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => openTab(tab.id)}
               className={`px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2 ${
                 activeTab === tab.id
                   ? "bg-blue-600 text-white"
@@ -58,13 +87,20 @@ export const LoadTestMain = () => {
           <CreateLoadTest
             testConfig={testConfig}
             setTestConfig={setTestConfig}
+            onOpenRunningTest={openRunningTest}
           />
         )}
 
-        {activeTab === "running" && <RunningLoadTest />}
+        {activeTab === "running" && (
+          <RunningLoadTest selectedRunId={selectedLoadTestId} />
+        )}
 
         {activeTab === "results" && <LoadTestResults />}
       </div>
     </div>
   );
+}
+
+function parseLoadTestTab(value: string | null): LoadTestTab {
+  return value === "running" || value === "results" ? value : "create";
 }
