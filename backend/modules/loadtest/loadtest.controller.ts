@@ -3,6 +3,7 @@ import { auth } from "../../../src/lib/auth";
 import {
   createLoadTestRecord,
   deleteLoadTestRecord,
+  getLoadTestHealth,
   getLoadTestLog,
   getLoadTestRecord,
   listLoadTestRecords,
@@ -10,6 +11,27 @@ import {
   LoadTestValidationError,
   stopLoadTestRecord,
 } from "./loadtest.service";
+
+export async function healthLoadTest(req: Request, res: Response) {
+  try {
+    await getRequiredUserId(req);
+
+    const health = await getLoadTestHealth({
+      url: getQueryString(req.query.url),
+      status: getQueryString(req.query.status),
+      latencyMs: getQueryNumber(req.query.latencyMs),
+      previousLatencyMs: getQueryNumber(req.query.previousLatencyMs),
+      errorRate: getQueryNumber(req.query.errorRate),
+    });
+
+    res.json({
+      success: true,
+      data: health,
+    });
+  } catch (error) {
+    handleLoadTestError(error, res, "Could not check load test health");
+  }
+}
 
 export async function listLoadTests(req: Request, res: Response) {
   try {
@@ -195,6 +217,26 @@ function createRequestHeaders(req: Request) {
   }
 
   return headers;
+}
+
+function getQueryString(value: unknown) {
+  if (Array.isArray(value)) {
+    return typeof value[0] === "string" ? value[0] : undefined;
+  }
+
+  return typeof value === "string" ? value : undefined;
+}
+
+function getQueryNumber(value: unknown) {
+  const stringValue = getQueryString(value);
+
+  if (!stringValue) {
+    return undefined;
+  }
+
+  const numberValue = Number(stringValue);
+
+  return Number.isFinite(numberValue) ? numberValue : undefined;
 }
 
 function handleLoadTestError(error: unknown, res: Response, fallback: string) {

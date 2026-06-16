@@ -16,12 +16,15 @@ const MAX_DURATION_SECONDS = 3_600;
 const LOG_TTL_MS = 24 * 60 * 60 * 1_000;
 const LIVE_PROGRESS_UPDATE_MS = 3_000;
 const URL_PRECHECK_TIMEOUT_MS = 5_000;
-const MAX_LATENCY_LOG_LINES = 20;
+const MAX_LATENCY_LOG_LINES = 100;
+const MAX_ERROR_LOG_LINES = 100;
 const LATENCY_ANOMALY_MIN_DELTA_MS = 100;
 const LATENCY_SPIKE_RATIO = 2.5;
 const LATENCY_DROP_RATIO = 0.4;
 const MAX_K6_STDERR_BUFFER_LENGTH = 4_000;
 const MAX_REALTIME_SERIES_POINTS = 80;
+const MAX_AI_SIGNAL_LINES = 50;
+const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 
 type LoadTestMethod = (typeof allowedMethods)[number];
 
@@ -38,6 +41,14 @@ export interface CreateLoadTestInput {
   users: number;
   duration: number;
   rampUp: number;
+}
+
+export interface LoadTestHealthInput {
+  url?: string;
+  status?: string;
+  latencyMs?: number;
+  previousLatencyMs?: number;
+  errorRate?: number;
 }
 
 export interface LoadTestRecord extends CreateLoadTestInput {
@@ -99,11 +110,65 @@ type LoadTestFinalSummary = {
   errors: number;
   errorRate: number;
   duration: number;
+  maxThroughput: number;
+  aiInsights?: LoadTestAiInsight[];
+  aiAnalysisStatus?: "generated" | "fallback" | "skipped";
+  infrastructure?: LoadTestInfrastructureSnapshot;
+};
+
+type LoadTestInfrastructureSnapshot = {
+  cpu: {
+    status: "not_collected";
+    source: string;
+    note: string;
+  };
+  ram: {
+    status: "sampled";
+    source: string;
+    rssMb: number;
+    heapUsedMb: number;
+  };
+  pods: {
+    status: "not_collected";
+    source: string;
+    note: string;
+  };
+  containers: {
+    status: "not_collected";
+    source: string;
+    note: string;
+  };
+};
+
+type LoadTestAiInsight = {
+  type: "success" | "warning" | "recommendation";
+  title: string;
+  description: string;
+};
+
+type LoadTestAiPayload = {
+  runId: string;
+  target: {
+    url: string;
+    method: string;
+    users: number;
+    duration: number;
+    rampUp: number;
+    status: LoadTestStatus;
+  };
+  metrics: LoadTestFinalSummary;
+  signals: {
+    errorMessage: string | null;
+    latencyAnomalies: string[];
+    errorSamples: string[];
+    bottlenecks: string[];
+  };
 };
 
 type K6Sample = {
   latencyMs: number;
   failed: boolean;
+  status?: number;
   currentUsers: number;
 };
 
@@ -162,7 +227,13 @@ export async function getLoadTestRecord(userId: string, id: string) {
     .where(and(eq(loadTestRun.userId, userId), eq(loadTestRun.id, id)))
     .limit(1);
 
-  return record ? mapLoadTestRecord(record) : null;
+  if (!record) {
+    return null;
+  }
+
+  const recordWithAi = await ensureLoadTestAiAnalysis(record);
+
+  return mapLoadTestRecord(recordWithAi);
 }
 
 export async function getLoadTestLog(userId: string, id: string) {
@@ -177,6 +248,20 @@ export async function getLoadTestLog(userId: string, id: string) {
   }
 
   return record.log ?? "No log was recorded for this load test.";
+}
+
+export async function getLoadTestHealth(input: LoadTestHealthInput = {}) {
+  const target = input.url
+    ? await testTargetUrl(input.url)
+    : null;
+
+  const diagnostics = evaluateLoadTestHealth(input);
+
+  return {
+    ok: diagnostics.state !== "error" && target?.ok !== false,
+    target,
+    diagnostics,
+  };
 }
 
 export async function createLoadTestRecord(userId: string, input: unknown) {
@@ -274,6 +359,7 @@ async function runLoadTest(record: DbLoadTestRun) {
   const scriptPath = join(tempDir, `${record.id}.js`);
   const summaryPath = join(tempDir, `${record.id}.summary.json`);
   const latencyLogLines: string[] = [];
+  const errorLogLines: string[] = [];
 
   try {
     await mkdir(tempDir, { recursive: true });
@@ -290,6 +376,7 @@ async function runLoadTest(record: DbLoadTestRun) {
     const progressUpdater = createLiveProgressUpdater(
       runningRecord,
       latencyLogLines,
+      errorLogLines,
     );
     liveProgress = progressUpdater;
 
@@ -304,7 +391,7 @@ async function runLoadTest(record: DbLoadTestRun) {
       metrics.errorRate > 0
         ? `k6 completed with ${metrics.errors} failed requests`
         : null;
-    const latencyLog = formatLatencyLog(latencyLogLines);
+    const latencyLog = formatDiagnosticLog(latencyLogLines, errorLogLines);
     const finalRequestsPerSecond = roundRealtimeMetric(
       metrics.requests / metrics.duration,
     );
@@ -320,11 +407,48 @@ async function runLoadTest(record: DbLoadTestRun) {
         requestsPerSecond: finalRequestsPerSecond,
       }),
     );
+    const finalStatus: LoadTestStatus =
+      metrics.errorRate > 0 ? "failed" : "completed";
+    const aiAnalysis = await analyzeCompletedLoadTest({
+      runId: record.id,
+      target: {
+        url: record.url,
+        method: record.method,
+        users: record.users,
+        duration: metrics.duration,
+        rampUp: record.rampUp,
+        status: finalStatus,
+      },
+      metrics: metrics.finalSummary,
+      signals: {
+        errorMessage: failureMessage,
+        latencyAnomalies: latencyLogLines.slice(-MAX_AI_SIGNAL_LINES),
+        errorSamples: errorLogLines.slice(-MAX_AI_SIGNAL_LINES),
+        bottlenecks: detectLoadTestBottlenecks(metrics.finalSummary),
+      },
+    });
+    const finalSummary = {
+      ...metrics.finalSummary,
+      infrastructure: createLoadTestInfrastructureSnapshot(),
+      aiInsights: aiAnalysis.insights,
+      aiAnalysisStatus: aiAnalysis.status,
+    };
+    logLoadTestSummary(record.id, {
+      status: finalStatus,
+      target: `${record.method} ${record.url}`,
+      metrics: metrics.finalSummary,
+      signals: {
+        errors: errorLogLines.length,
+        latencyAnomalies: latencyLogLines.length,
+        bottlenecks: detectLoadTestBottlenecks(metrics.finalSummary),
+      },
+      aiAnalysisStatus: aiAnalysis.status,
+    });
 
     await db
       .update(loadTestRun)
       .set({
-        status: metrics.errorRate > 0 ? "failed" : "completed",
+        status: finalStatus,
         progress: 100,
         currentUsers: record.totalUsers,
         latency: metrics.latency,
@@ -333,7 +457,7 @@ async function runLoadTest(record: DbLoadTestRun) {
         duration: metrics.duration,
         errors: metrics.errors,
         realtimeSeries: finalRealtimeSeries,
-        summary: metrics.finalSummary,
+        summary: finalSummary,
         log: latencyLog,
         logExpiresAt: latencyLog ? getLogExpiresAt() : null,
         errorMessage: failureMessage,
@@ -346,7 +470,7 @@ async function runLoadTest(record: DbLoadTestRun) {
       id: record.id,
       progress: 100,
       currentUsers: record.totalUsers,
-      status: metrics.errorRate > 0 ? "failed" : "completed",
+      status: finalStatus,
       latency: metrics.latency,
       latencyMs: parseLatencyMs(metrics.latency),
       requestsPerSecond: finalRequestsPerSecond,
@@ -364,7 +488,7 @@ async function runLoadTest(record: DbLoadTestRun) {
     ) {
       const stoppedRecord = await markStopped(
         record.id,
-        formatLatencyLog(latencyLogLines) ?? undefined,
+        formatDiagnosticLog(latencyLogLines, errorLogLines) ?? undefined,
       );
 
       publishLoadTestProgress({
@@ -385,7 +509,17 @@ async function runLoadTest(record: DbLoadTestRun) {
     }
 
     const message = error instanceof Error ? error.message : "Load test failed";
-    const latencyLog = formatLatencyLog(latencyLogLines);
+    const latencyLog = formatDiagnosticLog(latencyLogLines, errorLogLines);
+
+    logLoadTestSummary(record.id, {
+      status: "failed",
+      target: `${record.method} ${record.url}`,
+      errorMessage: message,
+      signals: {
+        errors: errorLogLines.length,
+        latencyAnomalies: latencyLogLines.length,
+      },
+    });
 
     await db
       .update(loadTestRun)
@@ -462,6 +596,7 @@ async function markStopped(id: string, log?: string) {
 function createLiveProgressUpdater(
   record: RunningDbLoadTestRun,
   latencyLogLines: string[],
+  errorLogLines: string[],
 ) {
   let progress = 1;
   let currentUsers = 0;
@@ -516,6 +651,7 @@ function createLiveProgressUpdater(
 
         if (sample.failed) {
           errorCount += 1;
+          trackErrorSample(errorLogLines, sample);
         }
 
         currentUsers = sample.currentUsers;
@@ -753,6 +889,7 @@ function parseK6Samples(output: string, record: DbLoadTestRun) {
       const parsed = JSON.parse(message) as Record<string, unknown>;
       const latencyMs = Number(parsed.latencyMs);
       const currentUsers = Number(parsed.currentUsers);
+      const status = Number(parsed.status);
 
       if (!Number.isFinite(latencyMs)) {
         continue;
@@ -761,6 +898,7 @@ function parseK6Samples(output: string, record: DbLoadTestRun) {
       samples.push({
         latencyMs: Math.max(0, latencyMs),
         failed: parsed.failed === true,
+        status: Number.isFinite(status) ? Math.round(status) : undefined,
         currentUsers: Number.isFinite(currentUsers)
           ? Math.min(record.totalUsers, Math.max(0, Math.round(currentUsers)))
           : 0,
@@ -810,8 +948,541 @@ function trackLatencyAnomaly(
   }
 }
 
-function formatLatencyLog(latencyLogLines: string[]) {
-  return latencyLogLines.length > 0 ? latencyLogLines.join("\n") : null;
+function trackErrorSample(errorLogLines: string[], sample: K6Sample) {
+  if (errorLogLines.length >= MAX_ERROR_LOG_LINES) {
+    return;
+  }
+
+  const status = sample.status ? `HTTP ${sample.status}` : "request failed";
+
+  errorLogLines.push(`${status} at ${formatLatencyMs(sample.latencyMs)}`);
+}
+
+function formatDiagnosticLog(
+  latencyLogLines: string[],
+  errorLogLines: string[],
+) {
+  const lines = [
+    ...errorLogLines.map((line) => `Error sample: ${line}`),
+    ...latencyLogLines,
+  ];
+
+  return lines.length > 0 ? lines.join("\n") : null;
+}
+
+function logLoadTestSummary(id: string, summary: Record<string, unknown>) {
+  console.info(
+    "[loadtest:summary]",
+    JSON.stringify(
+      {
+        id,
+        completedAt: new Date().toISOString(),
+        ...summary,
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+function createLoadTestInfrastructureSnapshot(): LoadTestInfrastructureSnapshot {
+  const memory = process.memoryUsage();
+
+  return {
+    cpu: {
+      status: "not_collected",
+      source: "k6/http summary",
+      note: "CPU usage is not collected by this k6 runner yet.",
+    },
+    ram: {
+      status: "sampled",
+      source: "node_process_memory",
+      rssMb: bytesToMb(memory.rss),
+      heapUsedMb: bytesToMb(memory.heapUsed),
+    },
+    pods: {
+      status: "not_collected",
+      source: "devscope-infra-agent",
+      note: "Kubernetes pod metrics are collected only when the optional infra agent posts them.",
+    },
+    containers: {
+      status: "not_collected",
+      source: "devscope-infra-agent",
+      note: "Container metrics are collected only when Docker or Kubernetes metrics are available to the optional infra agent.",
+    },
+  };
+}
+
+function bytesToMb(value: number) {
+  return Number((value / 1024 / 1024).toFixed(2));
+}
+
+async function ensureLoadTestAiAnalysis(record: DbLoadTestRun) {
+  if (!["completed", "failed"].includes(record.status)) {
+    return record;
+  }
+
+  if (summaryHasAiInsights(record.summary)) {
+    return record;
+  }
+
+  const metrics = parseStoredFinalSummary(record);
+
+  if (!metrics) {
+    return record;
+  }
+
+  const diagnosticLog = record.log ?? "";
+  const aiAnalysis = await analyzeCompletedLoadTest({
+    runId: record.id,
+    target: {
+      url: record.url,
+      method: record.method,
+      users: record.users,
+      duration: metrics.duration,
+      rampUp: record.rampUp,
+      status: record.status as LoadTestStatus,
+    },
+    metrics,
+    signals: {
+      errorMessage: record.errorMessage,
+      latencyAnomalies: extractDiagnosticLines(diagnosticLog, "Latency"),
+      errorSamples: extractDiagnosticLines(diagnosticLog, "Error sample"),
+      bottlenecks: detectLoadTestBottlenecks(metrics),
+    },
+  });
+  const nextSummary = {
+    ...(isRecord(record.summary) ? record.summary : {}),
+    ...metrics,
+    infrastructure: isRecord(record.summary) && isRecord(record.summary.infrastructure)
+      ? record.summary.infrastructure
+      : createLoadTestInfrastructureSnapshot(),
+    aiInsights: aiAnalysis.insights,
+    aiAnalysisStatus: aiAnalysis.status,
+  };
+  const [updatedRecord] = await db
+    .update(loadTestRun)
+    .set({
+      summary: nextSummary,
+    })
+    .where(eq(loadTestRun.id, record.id))
+    .returning();
+
+  return updatedRecord ?? record;
+}
+
+function summaryHasAiInsights(summary: unknown) {
+  return (
+    isRecord(summary) &&
+    Array.isArray(summary.aiInsights) &&
+    summary.aiInsights.length > 0
+  );
+}
+
+function parseStoredFinalSummary(record: DbLoadTestRun) {
+  const summary = isRecord(record.summary) ? record.summary : {};
+  const duration =
+    getFiniteNumber(summary.duration) ??
+    getActualDurationSeconds(record) ??
+    record.duration;
+  const requests = getFiniteNumber(summary.requests) ?? 0;
+  const errors = getFiniteNumber(summary.errors) ?? record.errors;
+  const errorRate =
+    getFiniteNumber(summary.errorRate) ?? record.errorRate / 100;
+  const avgLatency =
+    getFiniteNumber(summary.avgLatency) ?? parseLatencyMs(record.latency) ?? 0;
+  const p90 = getFiniteNumber(summary.p90) ?? avgLatency;
+  const p95 = getFiniteNumber(summary.p95) ?? avgLatency;
+  const p99 = getFiniteNumber(summary.p99) ?? p95;
+  const maxThroughput =
+    getFiniteNumber(summary.maxThroughput) ??
+    record.requestsPerSecond ??
+    (duration > 0 ? roundRealtimeMetric(requests / duration) : 0);
+
+  if (avgLatency <= 0 && requests <= 0 && errors <= 0) {
+    return null;
+  }
+
+  return {
+    avgLatency,
+    p90,
+    p95,
+    p99,
+    requests,
+    errors,
+    errorRate,
+    duration,
+    maxThroughput,
+  };
+}
+
+function extractDiagnosticLines(log: string, prefix: string) {
+  return log
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.includes(prefix))
+    .slice(-MAX_AI_SIGNAL_LINES);
+}
+
+async function analyzeCompletedLoadTest(payload: LoadTestAiPayload) {
+  const key = process.env.OPENAI_API_KEY ?? process.env.OPENAI_KEY;
+
+  if (!key) {
+    return {
+      insights: createFallbackAiInsights(payload),
+      status: "fallback" as const,
+    };
+  }
+
+  try {
+    const response = await fetch(OPENAI_RESPONSES_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
+        store: false,
+        input: [
+          {
+            role: "developer",
+            content:
+              "You are a senior performance engineer. Analyze only the provided summarized k6 metrics, error message, filtered error samples, latency anomalies, and bottleneck signals. Do not invent CPU, RAM, container, pod, or infrastructure facts. Return concise Vietnamese insights.",
+          },
+          {
+            role: "user",
+            content: JSON.stringify(payload),
+          },
+        ],
+        text: {
+          format: {
+            type: "json_schema",
+            name: "loadtest_ai_analysis",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                insights: {
+                  type: "array",
+                  minItems: 1,
+                  maxItems: 3,
+                  items: {
+                    type: "object",
+                    properties: {
+                      type: {
+                        type: "string",
+                        enum: ["success", "warning", "recommendation"],
+                      },
+                      title: { type: "string" },
+                      description: { type: "string" },
+                    },
+                    required: ["type", "title", "description"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ["insights"],
+              additionalProperties: false,
+            },
+          },
+        },
+        max_output_tokens: 700,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI analysis failed with status ${response.status}`);
+    }
+
+    const data = (await response.json()) as unknown;
+    const parsed = parseOpenAiAnalysisResponse(data);
+
+    if (parsed.length > 0) {
+      return {
+        insights: parsed,
+        status: "generated" as const,
+      };
+    }
+
+    return {
+      insights: createFallbackAiInsights(payload),
+      status: "fallback" as const,
+    };
+  } catch (error) {
+    console.warn("[loadtest:ai-analysis] failed", {
+      id: payload.runId,
+      error,
+    });
+
+    return {
+      insights: createFallbackAiInsights(payload),
+      status: "fallback" as const,
+    };
+  }
+}
+
+
+async function testTargetUrl(url: string) {
+  const startedAt = Date.now();
+
+  try {
+    const parsedUrl = parseUrl(url);
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      URL_PRECHECK_TIMEOUT_MS,
+    );
+
+    try {
+      const response = await fetch(parsedUrl, {
+        method: "HEAD",
+        redirect: "follow",
+        signal: controller.signal,
+      });
+      const latencyMs = Date.now() - startedAt;
+
+      return {
+        ok: response.ok,
+        status: response.ok ? "reachable" : "error",
+        httpStatus: response.status,
+        latencyMs,
+        message: response.ok
+          ? "Target URL is reachable"
+          : `Target URL returned HTTP ${response.status}`,
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      status: "error",
+      latencyMs: Date.now() - startedAt,
+      message:
+        error instanceof Error ? error.message : "Target URL request failed",
+    };
+  }
+}
+
+function evaluateLoadTestHealth(input: LoadTestHealthInput) {
+  const latencyMs = normalizeOptionalNumber(input.latencyMs);
+  const previousLatencyMs = normalizeOptionalNumber(input.previousLatencyMs);
+  const rawErrorRate = normalizeOptionalNumber(input.errorRate);
+  const errorRate =
+    rawErrorRate !== undefined && rawErrorRate > 1
+      ? rawErrorRate / 100
+      : rawErrorRate;
+  const status = getString(input.status).toLowerCase();
+  const signals: string[] = [];
+
+  if (status === "failed" || status === "error") {
+    signals.push("Run status reports an error");
+  }
+
+  if (status === "running") {
+    signals.push("Run is currently active");
+  }
+
+  if (errorRate !== undefined && errorRate > 0) {
+    signals.push(`Error rate ${formatPercent(errorRate)}`);
+  }
+
+  if (
+    latencyMs !== undefined &&
+    previousLatencyMs !== undefined &&
+    previousLatencyMs > 0 &&
+    latencyMs >= previousLatencyMs * LATENCY_SPIKE_RATIO &&
+    latencyMs - previousLatencyMs >= LATENCY_ANOMALY_MIN_DELTA_MS
+  ) {
+    signals.push(
+      `Latency spike ${formatLatencyMs(previousLatencyMs)} -> ${formatLatencyMs(
+        latencyMs,
+      )}`,
+    );
+  }
+
+  if (
+    signals.some(
+      (signal) => signal.includes("error") || signal.includes("Error"),
+    )
+  ) {
+    return {
+      state: "error",
+      signals,
+    };
+  }
+
+  if (signals.some((signal) => signal.includes("Latency spike"))) {
+    return {
+      state: "latency_spike",
+      signals,
+    };
+  }
+
+  if (status === "running") {
+    return {
+      state: "running",
+      signals,
+    };
+  }
+
+  return {
+    state: "ok",
+    signals,
+  };
+}
+
+function parseOpenAiAnalysisResponse(data: unknown) {
+  const outputText = extractOpenAiOutputText(data);
+
+  if (!outputText) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(outputText) as unknown;
+
+    if (!isRecord(parsed) || !Array.isArray(parsed.insights)) {
+      return [];
+    }
+
+    return parsed.insights
+      .map(normalizeAiInsight)
+      .filter((insight): insight is LoadTestAiInsight => insight !== null)
+      .slice(0, 3);
+  } catch {
+    return [];
+  }
+}
+
+function extractOpenAiOutputText(data: unknown) {
+  if (!isRecord(data)) {
+    return null;
+  }
+
+  if (typeof data.output_text === "string") {
+    return data.output_text;
+  }
+
+  if (!Array.isArray(data.output)) {
+    return null;
+  }
+
+  for (const item of data.output) {
+    if (!isRecord(item) || !Array.isArray(item.content)) {
+      continue;
+    }
+
+    for (const content of item.content) {
+      if (isRecord(content) && typeof content.text === "string") {
+        return content.text;
+      }
+    }
+  }
+
+  return null;
+}
+
+function normalizeAiInsight(value: unknown) {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const type = getString(value.type);
+  const title = getString(value.title);
+  const description = getString(value.description);
+
+  if (
+    !["success", "warning", "recommendation"].includes(type) ||
+    !title ||
+    !description
+  ) {
+    return null;
+  }
+
+  return {
+    type: type as LoadTestAiInsight["type"],
+    title,
+    description,
+  };
+}
+
+function createFallbackAiInsights(payload: LoadTestAiPayload) {
+  const insights: LoadTestAiInsight[] = [];
+
+  if (payload.metrics.errorRate === 0 && payload.metrics.p95 < 500) {
+    insights.push({
+      type: "success",
+      title: "Run ổn định theo số liệu tổng hợp",
+      description: `Không ghi nhận lỗi, p95 ${formatLatencyMs(
+        payload.metrics.p95,
+      )}, throughput trung bình ${payload.metrics.maxThroughput} req/s.`,
+    });
+  } else if (payload.metrics.errorRate > 0) {
+    insights.push({
+      type: "warning",
+      title: "Có request lỗi trong quá trình chạy",
+      description: `${payload.metrics.errors} lỗi trên ${
+        payload.metrics.requests
+      } request, error rate ${formatPercent(payload.metrics.errorRate)}.`,
+    });
+  } else {
+    insights.push({
+      type: "warning",
+      title: "Latency tail cần theo dõi",
+      description: `p95 ${formatLatencyMs(payload.metrics.p95)} và p99 ${formatLatencyMs(
+        payload.metrics.p99,
+      )} cao hơn avg ${formatLatencyMs(payload.metrics.avgLatency)}.`,
+    });
+  }
+
+  const bottleneck = payload.signals.bottlenecks[0];
+
+  insights.push({
+    type: "recommendation",
+    title: bottleneck ?? "Ưu tiên kiểm tra điểm nghẽn theo latency",
+    description:
+      payload.signals.errorSamples[0] ??
+      payload.signals.latencyAnomalies[0] ??
+      "Dùng avg, p95/p99, error rate và throughput của run này để khoanh vùng endpoint chậm trước khi lưu log chi tiết.",
+  });
+
+  return insights.slice(0, 3);
+}
+
+function detectLoadTestBottlenecks(summary: LoadTestFinalSummary) {
+  const bottlenecks: string[] = [];
+
+  if (summary.errorRate > 0) {
+    bottlenecks.push(
+      `Error rate ${formatPercent(summary.errorRate)} with ${summary.errors} failed requests`,
+    );
+  }
+
+  if (summary.p95 >= Math.max(500, summary.avgLatency * 2)) {
+    bottlenecks.push(
+      `Tail latency high: p95 ${formatLatencyMs(summary.p95)} vs avg ${formatLatencyMs(
+        summary.avgLatency,
+      )}`,
+    );
+  }
+
+  if (summary.p99 >= Math.max(1_000, summary.avgLatency * 3)) {
+    bottlenecks.push(
+      `Severe p99 latency: ${formatLatencyMs(summary.p99)}`,
+    );
+  }
+
+  if (summary.maxThroughput === 0 && summary.requests === 0) {
+    bottlenecks.push("No successful request throughput recorded");
+  }
+
+  return bottlenecks.slice(0, MAX_AI_SIGNAL_LINES);
+}
+
+function formatPercent(rate: number) {
+  return `${roundRealtimeMetric(rate * 100)}%`;
 }
 
 function getRealtimeSeries(value: unknown) {
@@ -1020,6 +1691,7 @@ function extractK6Metrics(summary: K6Summary): LoadTestMetrics {
     errors,
     errorRate,
     duration,
+    maxThroughput: roundRealtimeMetric(requestCount / duration),
   };
 
   return {
@@ -1272,6 +1944,22 @@ async function validateReachableUrl(url: string) {
 
 function getString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeOptionalNumber(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const numberValue = Number(value);
+
+  return Number.isFinite(numberValue) ? numberValue : undefined;
+}
+
+function getFiniteNumber(value: unknown) {
+  const numberValue = Number(value);
+
+  return Number.isFinite(numberValue) ? numberValue : undefined;
 }
 
 function getInteger(

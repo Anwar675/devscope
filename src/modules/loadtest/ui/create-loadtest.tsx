@@ -22,12 +22,14 @@ interface CreateLoadTestProps {
   testConfig: LoadTestConfigValues;
   setTestConfig: Dispatch<SetStateAction<LoadTestConfigValues>>;
   onOpenRunningTest?: (id: string) => void;
+  onOpenResults?: (id: string) => void;
 }
 
 export const CreateLoadTest = ({
   testConfig,
   setTestConfig,
   onOpenRunningTest,
+  onOpenResults,
 }: CreateLoadTestProps) => {
   const [tests, setTests] = useState<LoadTestListItem[]>([]);
   const [isLoadingTests, setIsLoadingTests] = useState(true);
@@ -268,6 +270,7 @@ export const CreateLoadTest = ({
           onStop={handleStop}
           onDelete={handleDelete}
           onOpenRunningTest={onOpenRunningTest}
+          onOpenResults={onOpenResults}
           stoppingTestId={stoppingTestId}
           deletingTestId={deletingTestId}
         />

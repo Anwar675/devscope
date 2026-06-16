@@ -3,6 +3,7 @@
 import { motion } from "motion/react";
 import {
   Activity,
+  Brain,
   CheckCircle2,
   Clock,
   Square,
@@ -16,6 +17,7 @@ export interface LoadTestListItem {
   id: string;
   url: string;
   method: string;
+  users: number;
   status: "queued" | "running" | "completed" | "failed" | "stopped";
   progress: number;
   currentUsers: number;
@@ -27,6 +29,7 @@ export interface LoadTestListItem {
   realtimeSeries?: LoadTestRealtimeSample[];
   duration: number;
   errorMessage?: string | null;
+  summary?: unknown;
 }
 
 export type LoadTestRealtimeSample = {
@@ -46,6 +49,7 @@ interface LoadTestTableProps {
   onStop?: (id: string) => void;
   onDelete?: (id: string) => void;
   onOpenRunningTest?: (id: string) => void;
+  onOpenResults?: (id: string) => void;
 }
 
 export const LoadTestTable = ({
@@ -56,6 +60,7 @@ export const LoadTestTable = ({
   onStop,
   onDelete,
   onOpenRunningTest,
+  onOpenResults,
 }: LoadTestTableProps) => {
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   const runningCount = tests.filter((test) => test.status === "running").length;
@@ -323,6 +328,19 @@ export const LoadTestTable = ({
                     >
                       <Activity className="h-4 w-4" />
                     </button>
+
+                    {!["queued", "running"].includes(test.status) && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenResults?.(test.id)}
+                        disabled={!onOpenResults}
+                        title="Open results and insights"
+                        aria-label="Open results and insights"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-purple-400/30 bg-purple-500/20 text-purple-200 transition-all hover:bg-purple-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Brain className="h-4 w-4" />
+                      </button>
+                    )}
 
                     {["queued", "running"].includes(test.status) ? (
                       <button

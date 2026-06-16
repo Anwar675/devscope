@@ -4,12 +4,14 @@ import {
   deleteLoadTest,
   getLoadTest,
   getLoadTestLogText,
+  healthLoadTest,
   listLoadTests,
   stopLoadTest,
 } from "./loadtest.controller";
 
 const router = Router();
 
+router.get("/health", healthLoadTest);
 router.get("/", listLoadTests);
 router.get("/:id/log", getLoadTestLogText);
 router.get("/:id", getLoadTest);

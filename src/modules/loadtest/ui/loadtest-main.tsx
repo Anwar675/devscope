@@ -42,10 +42,6 @@ export const LoadTestMain = () => {
       params.delete("id");
     } else {
       params.set("tab", tab);
-
-      if (tab !== "running") {
-        params.delete("id");
-      }
     }
 
     const query = params.toString();
@@ -55,6 +51,13 @@ export const LoadTestMain = () => {
     const params = new URLSearchParams(searchParams.toString());
 
     params.set("tab", "running");
+    params.set("id", id);
+    router.push(`${pathname}?${params.toString()}`);
+  };
+  const openResults = (id: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    params.set("tab", "results");
     params.set("id", id);
     router.push(`${pathname}?${params.toString()}`);
   };
@@ -88,6 +91,7 @@ export const LoadTestMain = () => {
             testConfig={testConfig}
             setTestConfig={setTestConfig}
             onOpenRunningTest={openRunningTest}
+            onOpenResults={openResults}
           />
         )}
 
@@ -95,7 +99,9 @@ export const LoadTestMain = () => {
           <RunningLoadTest selectedRunId={selectedLoadTestId} />
         )}
 
-        {activeTab === "results" && <LoadTestResults />}
+        {activeTab === "results" && (
+          <LoadTestResults selectedRunId={selectedLoadTestId} />
+        )}
       </div>
     </div>
   );

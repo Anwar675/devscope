@@ -29,6 +29,30 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Load Test Infrastructure Agent
+
+Users can install the optional infra agent on their server to collect host CPU/RAM,
+Docker container stats, and Kubernetes pod/container metrics for load-test
+architecture recommendations.
+
+On the DevScope server, set a shared token:
+
+```bash
+LOADTEST_AGENT_TOKEN="replace-with-a-long-random-token"
+```
+
+On the user's server, run:
+
+```bash
+node scripts/devscope-infra-agent.mjs \
+  --run-id lt_your_run_id \
+  --post-url https://your-devscope-host/api/loadtest/lt_your_run_id/infrastructure \
+  --token "$LOADTEST_AGENT_TOKEN"
+```
+
+If Docker or Kubernetes metrics are unavailable, the agent keeps the existing
+CPU/RAM keys and marks pod/container metrics as `not_collected` or `unknown`.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
