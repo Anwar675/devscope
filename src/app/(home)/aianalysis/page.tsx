@@ -2,7 +2,7 @@ import { AIAnalysis } from "@/modules/aianalysis/ui/aianalysis-main";
 
 const AiAnalysisPage = () => {
     return (
-        <div className="pt-16">
+        <div>
             <AIAnalysis />
         </div>
     )

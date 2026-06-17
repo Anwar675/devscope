@@ -6,10 +6,10 @@ export const AIAnalysisSummary = () => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mb-8 p-6 bg-gradient-to-r from-dev-purple/20 via-dev-accent/20 to-dev-purple/20 border-l-4 border-dev-purple rounded-r-2xl backdrop-blur-lg"
+      className="mb-8 p-6 bg-linear-to-r from-dev-purple/20 via-dev-accent/20 to-dev-purple/20 border-l-4 border-dev-purple rounded-r-2xl backdrop-blur-lg"
     >
       <div className="flex items-start gap-4">
-        <div className="w-10 h-10 rounded-lg bg-dev-purple/30 flex items-center justify-center flex-shrink-0">
+        <div className="w-10 h-10 rounded-lg bg-dev-purple/30 flex items-center justify-center shrink-0">
           <Lightbulb className="w-6 h-6 text-dev-purple-hover" />
         </div>
         <div className="flex-1">

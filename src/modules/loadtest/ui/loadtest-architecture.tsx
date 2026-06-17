@@ -145,7 +145,7 @@ export const LoadTestArchitecture = ({ loadTest }: LoadTestArchitectureProps) =>
                   className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg"
                 >
                   <div className="flex items-start gap-2 text-sm text-white">
-                    <GitBranch className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-300" />
+                    <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-blue-300" />
                     <span>{signal}</span>
                   </div>
                 </div>
@@ -174,7 +174,7 @@ export const LoadTestArchitecture = ({ loadTest }: LoadTestArchitectureProps) =>
                   className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg"
                 >
                   <div className="flex items-start gap-2">
-                    <ServerCog className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-300" />
+                    <ServerCog className="mt-0.5 h-4 w-4 shrink-0 text-green-300" />
                     <div>
                       <div className="text-sm font-semibold text-white">
                         {item.component}

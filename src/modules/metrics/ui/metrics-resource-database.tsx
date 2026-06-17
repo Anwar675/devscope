@@ -15,11 +15,16 @@ import {
 import {
   chartLabelStyle,
   chartTooltipStyle,
-  databaseMetricsData,
-  resourceUtilizationData,
+  type MetricsAnalyticsData,
 } from "./metrics-data";
 
-export const MetricsResourceDatabase = () => {
+interface MetricsResourceDatabaseProps {
+  metrics: MetricsAnalyticsData;
+}
+
+export const MetricsResourceDatabase = ({
+  metrics,
+}: MetricsResourceDatabaseProps) => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
       <motion.div
@@ -28,9 +33,12 @@ export const MetricsResourceDatabase = () => {
         transition={{ delay: 0.8 }}
         className="min-w-0 p-6 bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl"
       >
-        <h3 className="text-xl font-semibold text-white mb-6">Resource Utilization</h3>
+        <div className="mb-6">
+          <h3 className="text-xl font-semibold text-white">Resource Utilization</h3>
+          <p className="mt-2 text-sm text-dev-text-muted">{metrics.source.resource}</p>
+        </div>
         <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={resourceUtilizationData}>
+          <AreaChart data={metrics.resourceUtilizationData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
             <XAxis dataKey="time" stroke="#94a3b8" style={{ fontSize: "12px" }} />
             <YAxis stroke="#94a3b8" style={{ fontSize: "12px" }} />
@@ -55,7 +63,7 @@ export const MetricsResourceDatabase = () => {
       >
         <h3 className="text-xl font-semibold text-white mb-6">Database Performance</h3>
         <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={databaseMetricsData}>
+          <ComposedChart data={metrics.databaseMetricsData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
             <XAxis dataKey="time" stroke="#94a3b8" style={{ fontSize: "12px" }} />
             <YAxis yAxisId="left" stroke="#94a3b8" style={{ fontSize: "12px" }} />

@@ -9,7 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
-import { errorRateData, latencyTimeSeriesData, throughputData } from "./metrics-data";
+import type { MetricsAnalyticsData } from "./metrics-data";
 
 type MetricColor = "green" | "blue" | "orange" | "purple";
 
@@ -53,45 +53,6 @@ const metricColors: Record<
   },
 };
 
-const keyMetrics: KeyMetric[] = [
-  {
-    label: "Avg Response Time",
-    value: "284ms",
-    change: -12,
-    trend: "down",
-    icon: Clock,
-    color: "green",
-    chart: latencyTimeSeriesData.map((item) => item.avg),
-  },
-  {
-    label: "Total Requests",
-    value: "96.0K",
-    change: 18,
-    trend: "up",
-    icon: Activity,
-    color: "blue",
-    chart: throughputData.map((item) => item.requests),
-  },
-  {
-    label: "Error Rate",
-    value: "3.2%",
-    change: 8,
-    trend: "up",
-    icon: AlertCircle,
-    color: "orange",
-    chart: errorRateData.map((item) => item.rate),
-  },
-  {
-    label: "Requests/sec",
-    value: "1,248",
-    change: 15,
-    trend: "up",
-    icon: Zap,
-    color: "purple",
-    chart: throughputData.map((item) => item.requests / 3600),
-  },
-];
-
 const getTrendColor = (metric: KeyMetric) => {
   if (metric.trend === "down" && metric.color === "green") {
     return "text-green-400";
@@ -104,7 +65,13 @@ const getTrendColor = (metric: KeyMetric) => {
   return metric.trend === "up" ? "text-green-400" : "text-red-400";
 };
 
-export const MetricsSummaryCards = () => {
+interface MetricsSummaryCardsProps {
+  metrics: MetricsAnalyticsData;
+}
+
+export const MetricsSummaryCards = ({ metrics }: MetricsSummaryCardsProps) => {
+  const keyMetrics = createKeyMetrics(metrics);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       {keyMetrics.map((metric, idx) => {
@@ -159,3 +126,57 @@ export const MetricsSummaryCards = () => {
     </div>
   );
 };
+
+function createKeyMetrics(metrics: MetricsAnalyticsData): KeyMetric[] {
+  return [
+    {
+      label: "Avg Response Time",
+      value: `${formatNumber(metrics.summary.avgResponseTime.value)}ms`,
+      change: metrics.summary.avgResponseTime.change,
+      trend: metrics.summary.avgResponseTime.change <= 0 ? "down" : "up",
+      icon: Clock,
+      color: "green",
+      chart: metrics.latencyTimeSeriesData.map((item) => item.avg),
+    },
+    {
+      label: "Total Requests",
+      value: formatCompact(metrics.summary.totalRequests.value),
+      change: metrics.summary.totalRequests.change,
+      trend: metrics.summary.totalRequests.change >= 0 ? "up" : "down",
+      icon: Activity,
+      color: "blue",
+      chart: metrics.throughputData.map((item) => item.requests),
+    },
+    {
+      label: "Error Rate",
+      value: `${formatNumber(metrics.summary.errorRate.value)}%`,
+      change: metrics.summary.errorRate.change,
+      trend: metrics.summary.errorRate.change <= 0 ? "down" : "up",
+      icon: AlertCircle,
+      color: "orange",
+      chart: metrics.errorRateData.map((item) => item.rate),
+    },
+    {
+      label: "Requests/sec",
+      value: formatNumber(metrics.summary.requestsPerSecond.value),
+      change: metrics.summary.requestsPerSecond.change,
+      trend: metrics.summary.requestsPerSecond.change >= 0 ? "up" : "down",
+      icon: Zap,
+      color: "purple",
+      chart: metrics.throughputData.map((item) => item.requests),
+    },
+  ];
+}
+
+function formatNumber(value: number) {
+  return value.toLocaleString("en-US", {
+    maximumFractionDigits: value < 10 ? 2 : value < 100 ? 1 : 0,
+  });
+}
+
+function formatCompact(value: number) {
+  return Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
+}

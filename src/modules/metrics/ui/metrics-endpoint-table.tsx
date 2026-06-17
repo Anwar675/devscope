@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
-import { endpointBreakdown } from "./metrics-data";
+import type { MetricsAnalyticsData } from "./metrics-data";
 
 const getLatencyColor = (value: number, warning: number, critical: number) => {
   if (value < warning) {
@@ -38,7 +38,11 @@ const getErrorRateColor = (value: number) => {
   return "text-red-400";
 };
 
-export const MetricsEndpointTable = () => {
+interface MetricsEndpointTableProps {
+  metrics: MetricsAnalyticsData;
+}
+
+export const MetricsEndpointTable = ({ metrics }: MetricsEndpointTableProps) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -61,13 +65,16 @@ export const MetricsEndpointTable = () => {
             </tr>
           </thead>
           <tbody>
-            {endpointBreakdown.map((endpoint, idx) => {
-              const errorRateValue = (endpoint.errors / endpoint.requests) * 100;
+            {metrics.endpointBreakdown.map((endpoint, idx) => {
+              const errorRateValue =
+                endpoint.requests > 0
+                  ? (endpoint.errors / endpoint.requests) * 100
+                  : 0;
               const errorRate = errorRateValue.toFixed(2);
 
               return (
                 <motion.tr
-                  key={endpoint.endpoint}
+                  key={endpoint.runId ?? `${endpoint.endpoint}-${idx}`}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 1.1 + idx * 0.05 }}

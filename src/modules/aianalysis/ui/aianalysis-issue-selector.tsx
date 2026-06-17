@@ -27,7 +27,7 @@ export const AIAnalysisIssueSelector = ({
         <button
           key={issue.id}
           onClick={() => setSelectedIssue(idx)}
-          className={`px-5 py-3 rounded-xl border transition-all flex-shrink-0 ${
+          className={`px-5 py-3 rounded-xl border transition-all shrink-0 ${
             selectedIssue === idx
               ? getSelectedIssueClass(issue.severity)
               : "bg-dev-panel border-dev-border text-dev-text-muted/70 hover:border-dev-border-strong"

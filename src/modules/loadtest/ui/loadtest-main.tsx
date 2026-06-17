@@ -63,7 +63,7 @@ export const LoadTestMain = () => {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-950 via-blue-950 to-slate-950 p-8">
+    <div className="min-h-screen bg-linear-to-br from-slate-950 via-blue-950 to-slate-950 p-8 pt-30">
       <div className="max-w-450 mx-auto">
         {/* Header */}
         <Headers title="Load Testing" description="Create, run, and analyze load tests with AI-powered insights" />

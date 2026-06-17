@@ -2,7 +2,7 @@ import { MetricsAnalytics } from "@/modules/metrics/ui/metrics-main";
 
 const MetricsPage = () => {
     return (
-        <div className="pt-16">
+        <div>
             <MetricsAnalytics />
         </div>
     )

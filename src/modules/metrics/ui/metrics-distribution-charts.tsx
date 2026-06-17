@@ -15,12 +15,16 @@ import {
 } from "recharts";
 import {
   chartTooltipStyle,
-  errorRateData,
-  responseTimeDistribution,
-  statusCodeData,
+  type MetricsAnalyticsData,
 } from "./metrics-data";
 
-export const MetricsDistributionCharts = () => {
+interface MetricsDistributionChartsProps {
+  metrics: MetricsAnalyticsData;
+}
+
+export const MetricsDistributionCharts = ({
+  metrics,
+}: MetricsDistributionChartsProps) => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
       <motion.div
@@ -31,7 +35,7 @@ export const MetricsDistributionCharts = () => {
       >
         <h3 className="text-xl font-semibold text-white mb-6">Error Rate Over Time</h3>
         <ResponsiveContainer width="100%" height={250}>
-          <AreaChart data={errorRateData}>
+          <AreaChart data={metrics.errorRateData}>
             <defs>
               <linearGradient id="metrics-error-grad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
@@ -60,7 +64,7 @@ export const MetricsDistributionCharts = () => {
         <ResponsiveContainer width="100%" height={250}>
           <PieChart>
             <Pie
-              data={statusCodeData}
+              data={metrics.statusCodeData}
               cx="50%"
               cy="50%"
               innerRadius={60}
@@ -68,7 +72,7 @@ export const MetricsDistributionCharts = () => {
               paddingAngle={5}
               dataKey="value"
             >
-              {statusCodeData.map((entry) => (
+              {metrics.statusCodeData.map((entry) => (
                 <Cell key={entry.name} fill={entry.color} />
               ))}
             </Pie>
@@ -76,7 +80,7 @@ export const MetricsDistributionCharts = () => {
           </PieChart>
         </ResponsiveContainer>
         <div className="mt-4 space-y-2">
-          {statusCodeData.map((item) => (
+          {metrics.statusCodeData.map((item) => (
             <div key={item.name} className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
@@ -96,7 +100,7 @@ export const MetricsDistributionCharts = () => {
       >
         <h3 className="text-xl font-semibold text-white mb-6">Response Time Distribution</h3>
         <ResponsiveContainer width="100%" height={250}>
-          <BarChart data={responseTimeDistribution} layout="vertical">
+          <BarChart data={metrics.responseTimeDistribution} layout="vertical">
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
             <XAxis type="number" stroke="#94a3b8" style={{ fontSize: "12px" }} />
             <YAxis dataKey="range" type="category" stroke="#94a3b8" style={{ fontSize: "12px" }} width={80} />

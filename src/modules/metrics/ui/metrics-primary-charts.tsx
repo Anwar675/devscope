@@ -14,11 +14,14 @@ import {
 import {
   chartLabelStyle,
   chartTooltipStyle,
-  latencyTimeSeriesData,
-  throughputData,
+  type MetricsAnalyticsData,
 } from "./metrics-data";
 
-export const MetricsPrimaryCharts = () => {
+interface MetricsPrimaryChartsProps {
+  metrics: MetricsAnalyticsData;
+}
+
+export const MetricsPrimaryCharts = ({ metrics }: MetricsPrimaryChartsProps) => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
       <motion.div
@@ -29,7 +32,7 @@ export const MetricsPrimaryCharts = () => {
       >
         <h3 className="text-xl font-semibold text-white mb-6">Response Time Percentiles</h3>
         <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={latencyTimeSeriesData}>
+          <LineChart data={metrics.latencyTimeSeriesData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
             <XAxis dataKey="time" stroke="#94a3b8" style={{ fontSize: "12px" }} />
             <YAxis stroke="#94a3b8" style={{ fontSize: "12px" }} />
@@ -50,7 +53,7 @@ export const MetricsPrimaryCharts = () => {
       >
         <h3 className="text-xl font-semibold text-white mb-6">Throughput & Success Rate</h3>
         <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={throughputData}>
+          <ComposedChart data={metrics.throughputData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
             <XAxis dataKey="time" stroke="#94a3b8" style={{ fontSize: "12px" }} />
             <YAxis stroke="#94a3b8" style={{ fontSize: "12px" }} />

@@ -1,5 +1,6 @@
 import express from "express";
 import loadTestRouter from "./modules/loadtest/loadtest.route";
+import metricsRouter from "./modules/metrics/metrics.route";
 import morgan from "morgan";
 
 
@@ -26,5 +27,6 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/loadtest", loadTestRouter);
+app.use("/metrics", metricsRouter);
 
 export default app;
