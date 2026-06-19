@@ -29,7 +29,7 @@ export const AIAnalysisEventTimeline = ({ issue }: AIAnalysisEventTimelineProps)
                 }`}
               />
               {idx < issue.timeline.length - 1 && (
-                <div className="w-0.5 h-full bg-gradient-to-b from-dev-orange to-dev-danger mt-1" />
+                <div className="w-0.5 h-full bg-linear-to-b from-dev-orange to-dev-danger mt-1" />
               )}
             </div>
             <div className="flex-1 pb-6">

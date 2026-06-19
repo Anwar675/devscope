@@ -1,6 +1,7 @@
-import { detectedIssues } from "./aianalysis-data";
+import type { DetectedIssue } from "./aianalysis-data";
 
 interface AIAnalysisIssueSelectorProps {
+  issues: DetectedIssue[];
   selectedIssue: number;
   setSelectedIssue: (issue: number) => void;
 }
@@ -18,14 +19,15 @@ const getSelectedIssueClass = (severity: string) => {
 };
 
 export const AIAnalysisIssueSelector = ({
+  issues,
   selectedIssue,
   setSelectedIssue,
 }: AIAnalysisIssueSelectorProps) => {
   return (
     <div className="mb-6 flex gap-3 overflow-x-auto pb-2">
-      {detectedIssues.map((issue, idx) => (
+      {issues.map((issue, idx) => (
         <button
-          key={issue.id}
+          key={`${issue.id}-${issue.title}`}
           onClick={() => setSelectedIssue(idx)}
           className={`px-5 py-3 rounded-xl border transition-all shrink-0 ${
             selectedIssue === idx

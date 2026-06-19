@@ -1,7 +1,12 @@
 import { motion } from "motion/react";
 import { Lightbulb } from "lucide-react";
+import type { AIAnalysisReport } from "./aianalysis-data";
 
-export const AIAnalysisSummary = () => {
+interface AIAnalysisSummaryProps {
+  summary: AIAnalysisReport["summary"];
+}
+
+export const AIAnalysisSummary = ({ summary }: AIAnalysisSummaryProps) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -15,18 +20,29 @@ export const AIAnalysisSummary = () => {
         <div className="flex-1">
           <h3 className="text-lg font-semibold text-dev-purple-hover mb-2">Analysis Summary</h3>
           <p className="text-dev-text-soft leading-relaxed mb-3">
-            Detected <strong className="text-dev-text">3 performance issues</strong> causing the latency spike from{" "}
-            <strong className="text-dev-text">245ms to 4,120ms</strong> at 11:30 AM. Primary bottleneck:{" "}
-            <strong className="text-dev-text">Database connection pool saturation (98/100)</strong> due to missing index on
-            high-traffic queries.
+            Analyzed <strong className="text-dev-text">{summary.analyzedRuns} load test run{summary.analyzedRuns === 1 ? "" : "s"}</strong> and found{" "}
+            <strong className="text-dev-text">{summary.issueCount} issue{summary.issueCount === 1 ? "" : "s"}</strong>. Latency range from{" "}
+            <strong className="text-dev-text">{formatLatency(summary.minLatencyMs)} </strong> to{" "}
+            <strong className="text-dev-text">{formatLatency(summary.maxLatencyMs)}</strong>. Primary signal:{" "}
+            <strong className="text-dev-text">{summary.primaryBottleneck}</strong>
           </p>
           <div className="flex gap-3 text-sm">
-            <span className="px-3 py-1 bg-dev-danger/20 text-dev-danger rounded-lg">1 Critical</span>
-            <span className="px-3 py-1 bg-dev-orange/20 text-dev-orange rounded-lg">1 High</span>
-            <span className="px-3 py-1 bg-dev-yellow/20 text-dev-yellow rounded-lg">1 Medium</span>
+            <span className="px-3 py-1 bg-dev-danger/20 text-dev-danger rounded-lg">{summary.criticalCount} Critical</span>
+            <span className="px-3 py-1 bg-dev-orange/20 text-dev-orange rounded-lg">{summary.highCount} High</span>
+            <span className="px-3 py-1 bg-dev-yellow/20 text-dev-yellow rounded-lg">{summary.mediumCount} Medium</span>
           </div>
         </div>
       </div>
     </motion.div>
   );
 };
+
+function formatLatency(value: number) {
+  if (!Number.isFinite(value) || value <= 0) {
+    return "-";
+  }
+
+  return `${value.toLocaleString("en-US", {
+    maximumFractionDigits: value < 100 ? 2 : 1,
+  })}ms`;
+}

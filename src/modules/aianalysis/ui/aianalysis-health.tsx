@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { Activity } from "lucide-react";
-import { systemHealth } from "./aianalysis-data";
+import type { AnalysisHealthComponent } from "./aianalysis-data";
 
 const getHealthPanelClass = (status: string) => {
   if (status === "critical") {
@@ -34,7 +34,27 @@ const getHealthBadgeClass = (status: string) => {
   return "bg-dev-success/20 text-dev-success";
 };
 
-export const AIAnalysisHealth = () => {
+interface AIAnalysisHealthProps {
+  health: AnalysisHealthComponent[];
+}
+
+const getMetricClass = (tone: AnalysisHealthComponent["metrics"][number]["tone"]) => {
+  if (tone === "danger") {
+    return "text-dev-danger";
+  }
+
+  if (tone === "warning") {
+    return "text-dev-orange";
+  }
+
+  if (tone === "success") {
+    return "text-dev-success";
+  }
+
+  return "text-dev-text-muted";
+};
+
+export const AIAnalysisHealth = ({ health }: AIAnalysisHealthProps) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -47,7 +67,7 @@ export const AIAnalysisHealth = () => {
         System Component Health
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {systemHealth.map((component, idx) => (
+        {health.map((component, idx) => (
           <motion.div
             key={component.component}
             initial={{ opacity: 0, scale: 0.95 }}
@@ -61,30 +81,18 @@ export const AIAnalysisHealth = () => {
                 {component.status}
               </span>
             </div>
-            {component.status !== "missing" && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs text-dev-text-muted/70">
-                  <span>CPU</span>
-                  <span className={component.cpu > 80 ? "text-dev-danger" : "text-dev-text-muted"}>{component.cpu}%</span>
+            <p className="mb-3 text-xs text-dev-text-muted/70">{component.detail}</p>
+            <div className="space-y-2">
+              {component.metrics.map((metric) => (
+                <div
+                  key={metric.label}
+                  className="flex justify-between gap-3 text-xs text-dev-text-muted/70"
+                >
+                  <span>{metric.label}</span>
+                  <span className={getMetricClass(metric.tone)}>{metric.value}</span>
                 </div>
-                <div className="w-full h-1.5 bg-dev-overlay rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${component.cpu > 80 ? "bg-dev-danger" : "bg-dev-accent"}`}
-                    style={{ width: `${component.cpu}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-dev-text-muted/70">
-                  <span>Memory</span>
-                  <span className={component.memory > 80 ? "text-dev-danger" : "text-dev-text-muted"}>{component.memory}%</span>
-                </div>
-                <div className="w-full h-1.5 bg-dev-overlay rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${component.memory > 80 ? "bg-dev-danger" : "bg-dev-success"}`}
-                    style={{ width: `${component.memory}%` }}
-                  />
-                </div>
+              ))}
               </div>
-            )}
             {component.issues > 0 && (
               <div className="mt-3 text-xs text-dev-orange">
                 {component.issues} issue{component.issues > 1 ? "s" : ""} detected
