@@ -9,6 +9,7 @@ const timeRangeHours = {
   "1h": 1,
   "6h": 6,
   "24h": 24,
+  "3d": 24 * 3,
   "7d": 24 * 7,
   "30d": 24 * 30,
 } as const;

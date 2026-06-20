@@ -1,6 +1,13 @@
-export type MetricsTimeRange = "1h" | "6h" | "24h" | "7d" | "30d";
+export type MetricsTimeRange = "1h" | "6h" | "24h" | "3d" | "7d" | "30d";
 
-export const metricsTimeRanges: MetricsTimeRange[] = ["1h", "6h", "24h", "7d", "30d"];
+export const metricsTimeRanges: MetricsTimeRange[] = [
+  "1h",
+  "6h",
+  "24h",
+  "3d",
+  "7d",
+  "30d",
+];
 
 export type LatencyTimeSeriesDatum = {
   time: string;

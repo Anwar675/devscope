@@ -1,12 +1,37 @@
-import { Activity } from "lucide-react";
+import { Activity, CheckCircle2 } from "lucide-react";
 import { motion } from "motion/react";
-const architectureCurrent = [
-  { name: "Client", icon: "💻", level: 0 },
-  { name: "NestJS Backend (×1)", icon: "⚙️", level: 1 },
-  { name: "PostgreSQL — bottleneck", icon: "🗄️", level: 2, isBottleneck: true },
-];
+import type { OverviewRecommendation } from "./overview-data";
 
-export const AiRecommand = () => {
+type AiRecommandProps = {
+  recommendations: OverviewRecommendation[];
+};
+
+const priorityStyles: Record<
+  OverviewRecommendation["priority"],
+  {
+    label: string;
+    className: string;
+  }
+> = {
+  immediate: {
+    label: "Immediate",
+    className: "bg-dev-danger/20 text-dev-danger",
+  },
+  "short-term": {
+    label: "Short term",
+    className: "bg-dev-orange/20 text-dev-orange",
+  },
+  "medium-term": {
+    label: "Medium term",
+    className: "bg-dev-yellow/20 text-dev-yellow",
+  },
+  "long-term": {
+    label: "Long term",
+    className: "bg-dev-accent/20 text-dev-accent",
+  },
+};
+
+export const AiRecommand = ({ recommendations }: AiRecommandProps) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -21,83 +46,48 @@ export const AiRecommand = () => {
         </h3>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b border-dev-border">
-        <button className="px-4 py-2 text-sm font-medium text-dev-accent border-b-2 border-dev-accent">
-          Current
-        </button>
-        <button className="px-4 py-2 text-sm font-medium text-dev-text-muted/50 hover:text-dev-text-muted">
-          Recommended
-        </button>
-      </div>
-
-      {/* Current Architecture */}
-      <div className="space-y-3 mb-6">
-        {architectureCurrent.map((node, idx) => (
-          <motion.div
-            key={idx}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.9 + idx * 0.1 }}
-            style={{ marginLeft: `${node.level * 20}px` }}
-            className={`p-3 rounded-xl border flex items-center gap-3 ${
-              node.isBottleneck
-                ? "bg-dev-danger/10 border-dev-danger/30"
-                : "bg-dev-accent/10 border-dev-accent/30"
-            }`}
-          >
-            <span className="text-xl">{node.icon}</span>
-            <span
-              className={`text-sm font-medium ${
-                node.isBottleneck ? "text-dev-danger" : "text-dev-text-muted"
-              }`}
-            >
-              {node.name}
-            </span>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Recommended Changes */}
       <div className="p-4 bg-linear-to-r from-dev-success/10 to-dev-emerald/10 border border-dev-success/20 rounded-xl">
         <h4 className="font-semibold text-dev-success mb-3 text-sm">
           Recommended changes
         </h4>
-        <div className="space-y-2 text-sm text-dev-text-muted/80">
-          <div className="flex items-start gap-2">
-            <span className="text-dev-success mt-0.5">+</span>
-            <span>
-              <strong className="text-dev-text">Redis</strong> cache — reduce DB
-              reads by ~70%
-            </span>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className="text-dev-success mt-0.5">+</span>
-            <span>
-              <strong className="text-dev-text">Read replica</strong> — offload
-              analytics queries
-            </span>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className="text-dev-success mt-0.5">+</span>
-            <span>
-              <strong className="text-dev-text">Scale backend ×4</strong> —
-              horizontal scaling
-            </span>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className="text-dev-success mt-0.5">+</span>
-            <span>
-              <strong className="text-dev-text">Load balancer</strong> — distribute
-              traffic
-            </span>
-          </div>
+        <div className="space-y-3 text-sm text-dev-text-muted/80">
+          {recommendations.length === 0 && (
+            <div className="text-dev-text-muted">
+              No AI recommendation is available yet.
+            </div>
+          )}
+          {recommendations.map((recommendation, index) => {
+            const priority = priorityStyles[recommendation.priority];
+
+            return (
+              <motion.div
+                key={`${recommendation.issueId}-${recommendation.title}`}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.9 + index * 0.1 }}
+                className="rounded-xl border border-dev-success/10 bg-dev-surface/5 p-3"
+              >
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-dev-success" />
+                    <strong className="text-dev-text">{recommendation.title}</strong>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-1 text-xs ${priority.className}`}>
+                    {priority.label}
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed text-dev-text-muted/75">
+                  {recommendation.description}
+                </p>
+                <div className="mt-3 grid gap-2 text-xs text-dev-text-muted/70 sm:grid-cols-2">
+                  <span>Impact: {recommendation.impact}</span>
+                  <span>Effort: {recommendation.effort}</span>
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       </div>
-
-      <button className="w-full mt-4 py-3 bg-linear-to-r from-dev-purple to-dev-accent hover:from-dev-purple-hover hover:to-dev-accent-hover text-dev-text rounded-xl transition-all font-medium text-sm">
-        View full recommendation with trade-offs →
-      </button>
     </motion.div>
   );
 };

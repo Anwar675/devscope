@@ -2,6 +2,7 @@ import express from "express";
 import aiAnalysisRouter from "./modules/aianalysis/aianalysis.route";
 import loadTestRouter from "./modules/loadtest/loadtest.route";
 import metricsRouter from "./modules/metrics/metrics.route";
+import overviewRouter from "./modules/overview/overview.route";
 import morgan from "morgan";
 
 
@@ -30,5 +31,6 @@ app.get("/health", (_req, res) => {
 app.use("/loadtest", loadTestRouter);
 app.use("/metrics", metricsRouter);
 app.use("/aianalysis", aiAnalysisRouter);
+app.use("/overview", overviewRouter);
 
 export default app;
