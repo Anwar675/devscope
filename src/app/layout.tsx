@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://devscope.ai";
+const siteUrl = (
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://devscope.ai"
+).replace(/\/$/, "");
 const siteName = "DevScope AI";
 const siteDescription =
   "DevScope AI is a traffic testing and load testing platform for backend teams to simulate real user traffic, monitor performance metrics, detect bottlenecks, and plan scaling with AI-powered analysis.";
