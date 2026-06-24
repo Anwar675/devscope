@@ -62,8 +62,8 @@ export function AIAnalysis() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-dev-bg via-dev-bg-mid to-dev-bg p-8 pt-30">
-      <div className="max-w-450 mx-auto">
+    <div className="min-h-screen bg-linear-to-br from-dev-bg via-dev-bg-mid to-dev-bg px-4 py-6 pt-20 sm:px-6 lg:p-8 lg:pt-30">
+      <div className="mx-auto max-w-450">
         <AIAnalysisHeader />
         {isLoading && (
           <div className="mb-8 rounded-2xl border border-dev-border bg-dev-panel p-6 text-dev-text-muted">

@@ -62,13 +62,13 @@ export const OverviewDashboard = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-dev-bg via-dev-bg-mid to-dev-bg p-8">
+    <div className="min-h-screen bg-linear-to-br from-dev-bg via-dev-bg-mid to-dev-bg px-4 py-6 pt-20 sm:px-6 lg:p-8 lg:pt-30">
       <div className="max-w-450 mx-auto">
         <Headers
           title={dashboard.header.title}
           description={dashboard.header.description}
         >
-          <div className="flex flex-wrap justify-end gap-3">
+          <div className="flex flex-wrap gap-3 sm:justify-end">
             {dashboard.header.badges.map((badge) => (
               <span
                 key={badge.label}

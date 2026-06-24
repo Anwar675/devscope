@@ -52,8 +52,8 @@ export function MetricsAnalytics() {
   }, [timeRange]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 p-8 pt-30">
-      <div className="max-w-450 mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 px-4 py-6 pt-20 sm:px-6 lg:p-8 lg:pt-30">
+      <div className="mx-auto max-w-450">
         <MetricsHeader timeRange={timeRange} setTimeRange={setTimeRange} />
         <MetricsSummaryCards metrics={metrics} />
         <MetricsPrimaryCharts metrics={metrics} />

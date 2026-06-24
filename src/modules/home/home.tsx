@@ -1,6 +1,5 @@
 "use client"
 import { motion } from "motion/react";
-import { useState } from "react";
 import {
   Activity,
   Zap,
@@ -27,7 +26,7 @@ export const HomePage = () => {
       
 
      
-          <section className="relative min-h-screen flex items-center justify-center overflow-hidden px-6 pt-20">
+          <section className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 pt-24 sm:px-6">
             {/* Animated background grid */}
             <div className="absolute inset-0 bg-dev-grid" />
 
@@ -74,7 +73,7 @@ export const HomePage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
-                className="text-6xl md:text-8xl font-bold mb-6 bg-linear-to-r from-dev-text via-dev-text-muted to-dev-purple-hover bg-clip-text text-transparent"
+                className="mb-6 bg-linear-to-r from-dev-text via-dev-text-muted to-dev-purple-hover bg-clip-text text-5xl font-bold text-transparent sm:text-6xl md:text-8xl"
               >
                 DevScope AI
               </motion.h1>
@@ -83,7 +82,7 @@ export const HomePage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.4 }}
-                className="text-xl md:text-2xl text-dev-text-soft mb-8 max-w-3xl mx-auto"
+                className="mx-auto mb-8 max-w-3xl text-lg text-dev-text-soft sm:text-xl md:text-2xl"
               >
                 Transform raw metrics into actionable insights. Understand your
                 system, detect bottlenecks, and make confident scaling
@@ -98,11 +97,11 @@ export const HomePage = () => {
               >
                 <button
                  
-                  className="px-8 py-4 bg-linear-to-r from-dev to-dev-purple hover:from-dev-accent-hover hover:to-dev-purple-hover text-dev-text rounded-xl transition-all transform hover:scale-105 flex items-center gap-2 shadow-lg shadow-dev-accent/50"
+                  className="flex items-center gap-2 rounded-xl bg-linear-to-r from-dev to-dev-purple px-6 py-3 text-dev-text shadow-lg shadow-dev-accent/50 transition-all hover:scale-105 hover:from-dev-accent-hover hover:to-dev-purple-hover sm:px-8 sm:py-4"
                 >
                   Get Started <ArrowRight className="w-5 h-5" />
                 </button>
-                <button className="px-8 py-4 bg-dev-surface/10 hover:bg-dev-surface/20 backdrop-blur-sm text-dev-text rounded-xl border border-dev-border-strong transition-all">
+                <button className="rounded-xl border border-dev-border-strong bg-dev-surface/10 px-6 py-3 text-dev-text backdrop-blur-sm transition-all hover:bg-dev-surface/20 sm:px-8 sm:py-4">
                   Watch Demo
                 </button>
               </motion.div>
@@ -112,7 +111,7 @@ export const HomePage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.8 }}
-                className="grid grid-cols-3 gap-8 mt-20 max-w-2xl mx-auto"
+                className="mx-auto mt-14 grid max-w-2xl grid-cols-1 gap-6 sm:mt-20 sm:grid-cols-3 sm:gap-8"
               >
                 {[
                   { label: "Faster Analysis", value: "10x" },
@@ -120,7 +119,7 @@ export const HomePage = () => {
                   { label: "Uptime", value: "99.9%" },
                 ].map((stat, idx) => (
                   <div key={idx} className="text-center">
-                    <div className="text-4xl font-bold text-dev-text mb-2">
+                    <div className="mb-2 text-3xl font-bold text-dev-text sm:text-4xl">
                       {stat.value}
                     </div>
                     <div className="text-sm text-dev-accent-muted">{stat.label}</div>
@@ -131,18 +130,18 @@ export const HomePage = () => {
           </section>
 
           {/* Core Capabilities */}
-          <section className="relative py-32 px-6">
+          <section className="relative px-4 py-20 sm:px-6 sm:py-32">
             <div className="max-w-7xl mx-auto">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-center mb-20"
+                className="mb-12 text-center sm:mb-20"
               >
-                <h2 className="text-5xl font-bold text-dev-text mb-4">
+                <h2 className="mb-4 text-3xl font-bold text-dev-text sm:text-5xl">
                   Core Capabilities
                 </h2>
-                <p className="text-xl text-dev-text-muted/70">
+                <p className="text-lg text-dev-text-muted/70 sm:text-xl">
                   Everything you need to understand and optimize your backend
                   systems
                 </p>
@@ -200,7 +199,7 @@ export const HomePage = () => {
                     viewport={{ once: true }}
                     transition={{ delay: idx * 0.1 }}
                     whileHover={{ scale: 1.05, y: -5 }}
-                    className="p-8 bg-dev-surface/5 backdrop-blur-lg border border-dev-border rounded-2xl hover:border-dev-border-strong transition-all group"
+                    className="group rounded-2xl border border-dev-border bg-dev-surface/5 p-6 backdrop-blur-lg transition-all hover:border-dev-border-strong sm:p-8"
                   >
                     <div
                       className={`w-14 h-14 rounded-xl bg-linear-to-br ${feature.gradient} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}
@@ -218,18 +217,18 @@ export const HomePage = () => {
           </section>
 
           {/* How It Works */}
-          <section className="relative py-32 px-6 bg-linear-to-b from-transparent via-dev-bg-mid/30 to-transparent">
+          <section className="relative bg-linear-to-b from-transparent via-dev-bg-mid/30 to-transparent px-4 py-20 sm:px-6 sm:py-32">
             <div className="max-w-6xl mx-auto">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-center mb-20"
+                className="mb-12 text-center sm:mb-20"
               >
-                <h2 className="text-5xl font-bold text-dev-text mb-4">
+                <h2 className="mb-4 text-3xl font-bold text-dev-text sm:text-5xl">
                   How DevScope Works
                 </h2>
-                <p className="text-xl text-dev-text-muted/70">
+                <p className="text-lg text-dev-text-muted/70 sm:text-xl">
                   From data collection to actionable insights in 5 steps
                 </p>
               </motion.div>
@@ -287,23 +286,23 @@ export const HomePage = () => {
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: idx * 0.1 }}
-                    className="flex gap-8 items-start"
+                    className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-8"
                   >
                     <div className="shrink-0">
                       <div
-                        className={`w-20 h-20 rounded-2xl bg-linear-to-br ${step.iconStyle} flex items-center justify-center shadow-lg`}
+                        className={`flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br shadow-lg sm:h-20 sm:w-20 ${step.iconStyle}`}
                       >
-                        <step.icon className="w-10 h-10 text-dev-text" />
+                        <step.icon className="h-8 w-8 text-dev-text sm:h-10 sm:w-10" />
                       </div>
                     </div>
                     <div className="flex-1 pt-2">
                       <div className="text-sm font-bold text-dev-accent mb-2">
                         STEP {step.step}
                       </div>
-                      <h3 className="text-2xl font-bold text-dev-text mb-3">
+                      <h3 className="mb-3 text-xl font-bold text-dev-text sm:text-2xl">
                         {step.title}
                       </h3>
-                      <p className="text-dev-text-muted/70 text-lg">
+                      <p className="text-base text-dev-text-muted/70 sm:text-lg">
                         {step.description}
                       </p>
                     </div>
@@ -314,18 +313,18 @@ export const HomePage = () => {
           </section>
 
           {/* What Makes Us Different */}
-          <section className="relative py-32 px-6">
+          <section className="relative px-4 py-20 sm:px-6 sm:py-32">
             <div className="max-w-6xl mx-auto">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-center mb-20"
+                className="mb-12 text-center sm:mb-20"
               >
-                <h2 className="text-5xl font-bold text-dev-text mb-4">
+                <h2 className="mb-4 text-3xl font-bold text-dev-text sm:text-5xl">
                   Beyond Traditional Tools
                 </h2>
-                <p className="text-xl text-dev-text-muted/70">
+                <p className="text-lg text-dev-text-muted/70 sm:text-xl">
                   We don&apos;t replace k6, JMeter, or Grafana — we make them smarter
                 </p>
               </motion.div>
@@ -335,7 +334,7 @@ export const HomePage = () => {
                   initial={{ opacity: 0, x: -20 }}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
-                  className="p-10 bg-linear-to-br from-dev-danger-soft to-dev-warning-soft border border-dev-danger/20 rounded-2xl"
+                  className="rounded-2xl border border-dev-danger/20 bg-linear-to-br from-dev-danger-soft to-dev-warning-soft p-6 sm:p-10"
                 >
                   <h3 className="text-2xl font-bold text-dev-text mb-6">
                     Traditional Tools Show:
@@ -358,7 +357,7 @@ export const HomePage = () => {
                   initial={{ opacity: 0, x: 20 }}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
-                  className="p-10 bg-linear-to-br from-dev-success-soft to-dev-emerald/10 border border-dev-success/20 rounded-2xl"
+                  className="rounded-2xl border border-dev-success/20 bg-linear-to-br from-dev-success-soft to-dev-emerald/10 p-6 sm:p-10"
                 >
                   <h3 className="text-2xl font-bold text-dev-text mb-6">
                     DevScope Answers:
@@ -382,23 +381,23 @@ export const HomePage = () => {
           </section>
 
           {/* Tech Stack Showcase */}
-          <section className="relative py-32 px-6 bg-linear-to-b from-transparent via-dev-purple-soft to-transparent">
+          <section className="relative bg-linear-to-b from-transparent via-dev-purple-soft to-transparent px-4 py-20 sm:px-6 sm:py-32">
             <div className="max-w-6xl mx-auto">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-center mb-20"
+                className="mb-12 text-center sm:mb-20"
               >
-                <h2 className="text-5xl font-bold text-dev-text mb-4">
+                <h2 className="mb-4 text-3xl font-bold text-dev-text sm:text-5xl">
                   Built on Modern Tech
                 </h2>
-                <p className="text-xl text-dev-text-muted/70">
+                <p className="text-lg text-dev-text-muted/70 sm:text-xl">
                   Comprehensive knowledge from Day 1 to Day 60
                 </p>
               </motion.div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4 md:gap-6">
                 {[
                   { name: "PostgreSQL", icon: Database },
                   { name: "Redis", icon: Zap },
@@ -427,18 +426,18 @@ export const HomePage = () => {
           </section>
 
           {/* Roadmap */}
-          <section className="relative py-32 px-6">
+          <section className="relative px-4 py-20 sm:px-6 sm:py-32">
             <div className="max-w-6xl mx-auto">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-center mb-20"
+                className="mb-12 text-center sm:mb-20"
               >
-                <h2 className="text-5xl font-bold text-dev-text mb-4">
+                <h2 className="mb-4 text-3xl font-bold text-dev-text sm:text-5xl">
                   Product Roadmap
                 </h2>
-                <p className="text-xl text-dev-text-muted/70">
+                <p className="text-lg text-dev-text-muted/70 sm:text-xl">
                   Continuous evolution towards the ultimate AI mentor
                 </p>
               </motion.div>
@@ -497,30 +496,30 @@ export const HomePage = () => {
           </section>
 
           {/* CTA Section */}
-          <section className="relative py-32 px-6">
+          <section className="relative px-4 py-20 sm:px-6 sm:py-32">
             <div className="max-w-4xl mx-auto text-center">
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
-                className="p-12 bg-linear-to-br from-dev/20 to-dev-purple/20 backdrop-blur-lg border border-dev-border-strong rounded-3xl"
+                className="rounded-3xl border border-dev-border-strong bg-linear-to-br from-dev/20 to-dev-purple/20 p-6 backdrop-blur-lg sm:p-12"
               >
-                <h2 className="text-5xl font-bold text-dev-text mb-6">
+                <h2 className="mb-6 text-3xl font-bold text-dev-text sm:text-5xl">
                   Ready to Master Your System?
                 </h2>
-                <p className="text-xl text-dev-text-soft mb-10">
+                <p className="mb-10 text-lg text-dev-text-soft sm:text-xl">
                   Transform from guessing to knowing. Let AI guide you through
                   every scaling decision.
                 </p>
                 <div className="flex flex-wrap gap-4 justify-center">
                   <button
                   
-                    className="px-10 py-5 bg-linear-to-r from-dev to-dev-purple hover:from-dev-accent-hover hover:to-dev-purple-hover text-dev-text rounded-xl transition-all transform hover:scale-105 flex items-center gap-2 shadow-2xl shadow-dev-accent/50"
+                    className="flex items-center gap-2 rounded-xl bg-linear-to-r from-dev to-dev-purple px-6 py-3 text-dev-text shadow-2xl shadow-dev-accent/50 transition-all hover:scale-105 hover:from-dev-accent-hover hover:to-dev-purple-hover sm:px-10 sm:py-5"
                   >
                     <Sparkles className="w-5 h-5" />
                     Start Free Trial
                   </button>
-                  <button className="px-10 py-5 bg-dev-surface/10 hover:bg-dev-surface/20 backdrop-blur-sm text-dev-text rounded-xl border border-dev-border-strong transition-all">
+                  <button className="rounded-xl border border-dev-border-strong bg-dev-surface/10 px-6 py-3 text-dev-text backdrop-blur-sm transition-all hover:bg-dev-surface/20 sm:px-10 sm:py-5">
                     Schedule Demo
                   </button>
                 </div>

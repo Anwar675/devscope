@@ -7,7 +7,11 @@ import { useEffect, useState } from "react";
 
 type AuthSession = Awaited<ReturnType<typeof authClient.getSession>>["data"];
 
-export const UserStatus = () => {
+interface UserStatusProps {
+  variant?: "popover" | "logout";
+}
+
+export const UserStatus = ({ variant = "popover" }: UserStatusProps) => {
   const [session, setSession] = useState<AuthSession>(null);
   const [isPending, setIsPending] = useState(true);
   const [isUserPanelOpen, setIsUserPanelOpen] = useState(false);
@@ -52,6 +56,49 @@ export const UserStatus = () => {
     setSession(null);
     setIsUserPanelOpen(false);
   };
+
+  if (variant === "logout") {
+    if (isPending) {
+      return (
+        <div className="h-10 w-full animate-pulse rounded-lg bg-dev-surface/10" />
+      );
+    }
+
+    return session?.user ? (
+      <div className="flex gap-2 justify-center items-center ">
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dev-border bg-dev-surface/10 px-4 py-2 text-sm font-medium text-dev-text transition-all hover:bg-dev-surface/20"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign Out
+        </button>
+        <div className="h-11 w-11 overflow-hidden rounded-full">
+          {session?.user ? (
+            <div
+              dangerouslySetInnerHTML={{
+                __html: avatarSvg,
+              }}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center rounded-full bg-dev">
+              <User className="h-5 w-5" />
+            </div>
+          )}
+        </div>
+      </div>
+    ) : (
+      <Link
+        href="/sign-in"
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-dev-border bg-dev-surface/10  py-2 text-sm font-medium text-dev-text transition-all hover:bg-dev-surface/20"
+      >
+        <User className="h-4 w-4" />
+        Sign In
+      </Link>
+    );
+  }
+
   return (
     <>
       {isPending ? (

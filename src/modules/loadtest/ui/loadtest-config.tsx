@@ -45,9 +45,9 @@ export const LoadTestConfig = ({
      <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="space-y-6"
+              className="min-w-0 space-y-6"
             >
-              <div className="p-6 bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-lg sm:p-6">
                 <h3 className="text-xl font-semibold text-white mb-6">Test Configuration</h3>
 
                 <div className="space-y-6">
@@ -57,7 +57,7 @@ export const LoadTestConfig = ({
                       <Users className="w-5 h-5" />
                       Virtual Users
                     </label>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                       <input
                         type="range"
                         min="10"
@@ -71,7 +71,7 @@ export const LoadTestConfig = ({
                         type="number"
                         value={testConfig.users}
                         onChange={(e) => setTestConfig({ ...testConfig, users: parseInt(e.target.value) })}
-                        className="w-24 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                        className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-white sm:w-24"
                       />
                     </div>
                   </div>
@@ -82,7 +82,7 @@ export const LoadTestConfig = ({
                       <Clock className="w-5 h-5" />
                       Total Duration (seconds)
                     </label>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                       <input
                         type="range"
                         min="60"
@@ -96,7 +96,7 @@ export const LoadTestConfig = ({
                         type="number"
                         value={testConfig.duration}
                         onChange={(e) => updateDuration(parseInt(e.target.value))}
-                        className="w-24 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                        className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-white sm:w-24"
                       />
                     </div>
                   </div>
@@ -107,7 +107,7 @@ export const LoadTestConfig = ({
                       <TrendingUp className="w-5 h-5" />
                       Ramp-up Time (seconds)
                     </label>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                       <input
                         type="range"
                         min="0"
@@ -123,7 +123,7 @@ export const LoadTestConfig = ({
                         max={testConfig.duration}
                         value={testConfig.rampUp}
                         onChange={(e) => updateRampUp(parseInt(e.target.value))}
-                        className="w-24 px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white"
+                        className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-white sm:w-24"
                       />
                     </div>
                   </div>
@@ -153,7 +153,7 @@ export const LoadTestConfig = ({
               </div>
 
               {/* Quick Presets */}
-              <div className="p-6 bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-lg sm:p-6">
                 <h3 className="text-lg font-semibold text-white mb-4">Quick Presets</h3>
                 <div className="space-y-2">
                   {[

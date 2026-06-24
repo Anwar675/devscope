@@ -63,23 +63,23 @@ export const LoadTestMain = () => {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-950 via-blue-950 to-slate-950 p-8 pt-30">
-      <div className="max-w-450 mx-auto">
+    <div className="min-h-screen bg-linear-to-br from-slate-950 via-blue-950 to-slate-950 px-4 py-6 pt-20 sm:px-6 lg:p-8 lg:pt-30">
+      <div className="mx-auto max-w-450">
         {/* Header */}
         <Headers title="Load Testing" description="Create, run, and analyze load tests with AI-powered insights" />
         {/* Tabs */}
-        <div className="flex gap-2 mb-8">
+        <div className="-mx-4 mb-8 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => openTab(tab.id)}
-              className={`px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2 ${
+              className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-all sm:px-6 sm:text-base ${
                 activeTab === tab.id
                   ? "bg-blue-600 text-white"
                   : "bg-white/5 text-blue-200/70 hover:bg-white/10"
               }`}
             >
-              <tab.icon className="w-5 h-5" />
+              <tab.icon className="h-5 w-5 shrink-0" />
               {tab.label}
             </button>
           ))}

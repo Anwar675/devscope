@@ -195,14 +195,14 @@ export const CreateLoadTest = ({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="lg:col-span-2 space-y-6"
+        className="min-w-0 space-y-6 lg:col-span-2"
       >
-        <div className="p-6 bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl">
-          <h2 className="text-2xl font-semibold text-white mb-6">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-lg sm:p-6">
+          <h2 className="mb-6 text-xl font-semibold text-white sm:text-2xl">
             Create Load Test
           </h2>
 
@@ -211,14 +211,14 @@ export const CreateLoadTest = ({
               <label className="block text-blue-200 mb-3 text-sm font-medium">
                 Endpoint
               </label>
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <div className="relative">
                   <select
                     value={testConfig.method}
                     onChange={(e) =>
                       setTestConfig({ ...testConfig, method: e.target.value })
                     }
-                    className="appearance-none px-4 py-3 pr-10 bg-white/10 border border-white/20 rounded-xl text-white font-medium cursor-pointer hover:bg-white/15 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full appearance-none rounded-xl border border-white/20 bg-white/10 px-4 py-3 pr-10 font-medium text-white transition-all hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:w-auto"
                   >
                     <option value="GET" className="bg-slate-800">
                       GET
@@ -246,7 +246,7 @@ export const CreateLoadTest = ({
                     setTestConfig({ ...testConfig, url: e.target.value })
                   }
                   placeholder="https://api.example.com/endpoint"
-                  className={`flex-1 px-4 py-3 bg-white/10 border rounded-xl text-white placeholder-blue-300/50 focus:outline-none focus:ring-2 focus:border-transparent ${
+                  className={`min-w-0 flex-1 rounded-xl border bg-white/10 px-4 py-3 text-white placeholder-blue-300/50 focus:border-transparent focus:outline-none focus:ring-2 ${
                     errorMessage
                       ? "border-red-400/60 focus:ring-red-500"
                       : "border-white/20 focus:ring-blue-500"

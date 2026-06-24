@@ -73,8 +73,8 @@ export const LoadTestTable = ({
   };
 
   return (
-    <div className="p-6 bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl">
-      <div className="flex items-center justify-between mb-6">
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-lg sm:p-6">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-xl font-semibold text-white">
           Active & Recent Tests
         </h3>
@@ -88,8 +88,8 @@ export const LoadTestTable = ({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <table className="min-w-[980px] w-full">
           <thead>
             <tr className="border-b border-white/10">
               <th className="text-left py-3 px-4 text-sm font-medium text-blue-200/70">
