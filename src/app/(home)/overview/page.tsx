@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 const OverView = () => {
   return (
-    <div className="pt-18">
+    <div>
       <OverviewDashboard />
     </div>
   );
